@@ -98,11 +98,11 @@ public class DropdownMenu extends AbstractWidget
         this.layout.setY(this.getY());
     }
 
-    public void addItem(AbstractWidget widget)
+    public void addItem(MenuItem item)
     {
-        this.layout.addChild(widget);
-        this.items.add(widget);
-        widget.visible = false;
+        this.layout.addChild(item);
+        this.items.add(item);
+        item.visible = false;
     }
 
     private void deepClose()
@@ -157,7 +157,7 @@ public class DropdownMenu extends AbstractWidget
         this.layout.visitWidgets(consumer);
     }
 
-    private static class MenuItem extends AbstractWidget
+    public static class MenuItem extends AbstractWidget
     {
         protected static final WidgetSprites SPRITES = new WidgetSprites(
             ResourceLocation.fromNamespaceAndPath(Constants.MOD_ID, "dropdown/item"),
@@ -203,6 +203,13 @@ public class DropdownMenu extends AbstractWidget
             output.add(NarratedElementType.TITLE, this.getMessage());
         }
 
+        protected int calculateWidth()
+        {
+            Font font = Minecraft.getInstance().font;
+            int labelOffset = (this.getHeight() - font.lineHeight) / 2 + 1;
+            int labelWidth = font.width(this.getMessage());
+            return labelOffset + labelWidth + labelOffset;
+        }
     }
 
     private static class CheckboxMenuItem extends MenuItem
@@ -236,6 +243,16 @@ public class DropdownMenu extends AbstractWidget
             {
                 this.parent.deepClose();
             }
+        }
+
+        @Override
+        protected int calculateWidth()
+        {
+            Font font = Minecraft.getInstance().font;
+            int labelOffset = (this.getHeight() - font.lineHeight) / 2 + 1;
+            int labelWidth = font.width(this.getMessage());
+            int checkboxOffset = (this.getHeight() - 14) / 2;
+            return labelOffset + labelWidth + labelOffset + 14 + checkboxOffset;
         }
     }
 
@@ -293,6 +310,16 @@ public class DropdownMenu extends AbstractWidget
         {
             return this.parent.subMenu == this.subMenu;
         }
+
+        @Override
+        protected int calculateWidth()
+        {
+            Font font = Minecraft.getInstance().font;
+            int labelOffset = (this.getHeight() - font.lineHeight) / 2 + 1;
+            int labelWidth = font.width(this.getMessage());
+            int arrowWidth = font.width(">");
+            return labelOffset + labelWidth + labelOffset + arrowWidth + labelOffset;
+        }
     }
 
     private interface MenuAligner
@@ -345,9 +372,9 @@ public class DropdownMenu extends AbstractWidget
     {
         private final DropdownMenuHandler handler;
         private final DropdownMenu base;
-        private final List<AbstractWidget> items = new ArrayList<>();
-        private int itemWidth = 100;
-        private int itemHeight = 20;
+        private final List<MenuItem> items = new ArrayList<>();
+        private int minItemWidth = 0;
+        private int minItemHeight = 20;
 
         private Builder(DropdownMenuHandler handler)
         {
@@ -355,10 +382,10 @@ public class DropdownMenu extends AbstractWidget
             this.base = new DropdownMenu(handler);
         }
 
-        public Builder setItemSize(int width, int height)
+        public Builder setMinItemSize(int width, int height)
         {
-            this.itemWidth = width;
-            this.itemHeight = height;
+            this.minItemWidth = width;
+            this.minItemHeight = height;
             return this;
         }
 
@@ -390,8 +417,9 @@ public class DropdownMenu extends AbstractWidget
 
         public DropdownMenu build()
         {
+            int maxWidth = this.items.stream().mapToInt(MenuItem::calculateWidth).max().orElse(100);
             this.items.forEach(widget -> {
-                widget.setSize(this.itemWidth, this.itemHeight);
+                widget.setSize(Math.max(maxWidth, this.minItemWidth), this.minItemHeight);
                 this.base.addItem(widget);
             });
             return this.base;
