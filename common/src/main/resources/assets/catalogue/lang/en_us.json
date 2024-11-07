@@ -12,5 +12,13 @@
     "catalogue.gui.credits": "Credits: %s",
     "catalogue.gui.version": "Version: %s",
     "catalogue.gui.update_available": "Update: %s",
-    "catalogue.gui.info": "This menu is provided by Catalogue. Click here to open the CurseForge page for this mod!"
+    "catalogue.gui.info": "This menu is provided by Catalogue. Click here to open the CurseForge page for this mod!",
+    "catalogue.gui.options": "Options",
+    "catalogue.gui.filters": "Filters",
+    "catalogue.gui.filters.configs_only": "Mods with Configs",
+    "catalogue.gui.filters.updates_only": "Mods with Updates",
+    "catalogue.gui.sort": "Sort",
+    "catalogue.gui.sort.alphabetically": "A-Z",
+    "catalogue.gui.sort.alphabetically_reverse": "Z-A",
+    "catalogue.gui.hide_libraries": "Hide Libraries"
 }

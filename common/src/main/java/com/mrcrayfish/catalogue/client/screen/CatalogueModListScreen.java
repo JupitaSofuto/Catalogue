@@ -11,8 +11,8 @@ import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mrcrayfish.catalogue.Constants;
 import com.mrcrayfish.catalogue.client.ClientHelper;
 import com.mrcrayfish.catalogue.client.IModData;
-import com.mrcrayfish.catalogue.client.screen.widget.CatalogueCheckBoxButton;
 import com.mrcrayfish.catalogue.client.screen.widget.CatalogueIconButton;
+import com.mrcrayfish.catalogue.client.screen.widget.DropdownMenu;
 import com.mrcrayfish.catalogue.platform.ClientServices;
 import net.minecraft.ChatFormatting;
 import net.minecraft.Util;
@@ -43,6 +43,8 @@ import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import org.apache.commons.lang3.mutable.MutableBoolean;
+import org.apache.commons.lang3.mutable.MutableObject;
 import org.apache.commons.lang3.tuple.Pair;
 import org.joml.Matrix4f;
 import org.lwjgl.glfw.GLFW;
@@ -60,9 +62,15 @@ import java.util.stream.Collectors;
 /**
  * Author: MrCrayfish
  */
-public class CatalogueModListScreen extends Screen
+public class CatalogueModListScreen extends Screen implements DropdownMenuHandler
 {
-    private static final Comparator<ModListEntry> SORT = Comparator.comparing(o -> o.getData().getDisplayName());
+    private static final Comparator<ModListEntry> SORT_ALPHABETICALLY = Comparator.comparing(o -> o.getData().getDisplayName());
+    private static final Comparator<ModListEntry> SORT_ALPHABETICALLY_REVERSED = SORT_ALPHABETICALLY.reversed();
+    private static final MutableObject<String> OPTION_QUERY = new MutableObject<>("");
+    private static final MutableBoolean OPTION_HIDE_LIBRARIES = new MutableBoolean(true);
+    private static final MutableBoolean OPTION_CONFIGS_ONLY = new MutableBoolean(false);
+    private static final MutableBoolean OPTION_UPDATES_ONLY = new MutableBoolean(false);
+    private static final MutableObject<Comparator<ModListEntry>> OPTION_SORT = new MutableObject<>(SORT_ALPHABETICALLY);
     private static final ResourceLocation MISSING_BANNER = ResourceLocation.fromNamespaceAndPath(Constants.MOD_ID, "textures/gui/missing_banner.png");
     private static final ResourceLocation MISSING_BACKGROUND = ResourceLocation.fromNamespaceAndPath(Constants.MOD_ID, "textures/gui/missing_background.png");
     private static final Map<String, Pair<ResourceLocation, Dimension>> BANNER_CACHE = new HashMap<>();
@@ -71,7 +79,6 @@ public class CatalogueModListScreen extends Screen
     private static final Map<String, IModData> CACHED_MODS = new HashMap<>();
     private static ResourceLocation cachedBackground;
     private static boolean loaded = false;
-    private static String lastSearch = "";
 
     private final Screen parentScreen;
     private EditBox searchTextField;
@@ -81,10 +88,10 @@ public class CatalogueModListScreen extends Screen
     private Button configButton;
     private Button websiteButton;
     private Button issueButton;
-    private CatalogueCheckBoxButton updatesButton;
     private StringList descriptionList;
     private int tooltipYOffset;
     private List<? extends FormattedCharSequence> activeTooltip;
+    private @Nullable DropdownMenu menu;
 
     public CatalogueModListScreen(Screen parent)
     {
@@ -95,7 +102,18 @@ public class CatalogueModListScreen extends Screen
             ClientServices.PLATFORM.getAllModData().forEach(data -> CACHED_MODS.put(data.getModId(), data));
             CACHED_MODS.put("minecraft", new MinecraftModData()); // Override minecraft
             loaded = true;
+            Services
         }
+    }
+
+    @Override
+    public void setMenu(@Nullable DropdownMenu menu)
+    {
+        if(this.menu != null && this.menu != menu)
+        {
+            this.menu.hide();
+        }
+        this.menu = menu;
     }
 
     @Override
@@ -109,12 +127,12 @@ public class CatalogueModListScreen extends Screen
     {
         super.init();
         this.searchTextField = new EditBox(this.font, 10, 25, 150, 20, CommonComponents.EMPTY);
-        this.searchTextField.setValue(lastSearch);
+        this.searchTextField.setValue(OPTION_QUERY.getValue());
         this.searchTextField.setResponder(s -> {
-            this.updateSearchField(s);
-            this.modList.filterAndUpdateList(s);
+            OPTION_QUERY.setValue(s);
+            this.updateSearchFieldSuggestion(s);
+            this.modList.filterAndUpdateList();
             this.updateSelectedModList();
-            lastSearch = s;
         });
         this.addWidget(this.searchTextField);
         this.modList = new ModList();
@@ -131,10 +149,8 @@ public class CatalogueModListScreen extends Screen
         int contentLeft = this.modList.getRight() + 12 + padding;
         int contentWidth = this.width - contentLeft - padding;
         int buttonWidth = (contentWidth - padding) / 3;
-        this.configButton = this.addRenderableWidget(new CatalogueIconButton(contentLeft, 105, 10, 0, buttonWidth, Component.translatable("catalogue.gui.config"), onPress ->
-        {
-            if(this.selectedModData != null)
-            {
+        this.configButton = this.addRenderableWidget(new CatalogueIconButton(contentLeft, 105, 10, 0, buttonWidth, Component.translatable("catalogue.gui.config"), onPress -> {
+            if(this.selectedModData != null) {
                 this.selectedModData.openConfigScreen(this);
             }
         }));
@@ -153,12 +169,40 @@ public class CatalogueModListScreen extends Screen
         //this.descriptionList.setRenderBackground(false); // TODO what appened
         this.addWidget(this.descriptionList);
 
-        this.updatesButton = this.addRenderableWidget(new CatalogueCheckBoxButton(this.modList.getRight() - 14, 7, button -> {
-            this.modList.filterAndUpdateList(this.searchTextField.getValue());
-            this.updateSelectedModList();
-        }));
+        DropdownMenu menu = DropdownMenu.builder(this)
+            .setMinItemSize(100, 16)
+            .setAlignment(DropdownMenu.Alignment.BELOW_RIGHT)
+            .addMenu(Component.translatable("catalogue.gui.filters"), DropdownMenu.builder(this)
+                .setMinItemSize(60, 16)
+                .setAlignment(DropdownMenu.Alignment.END_TOP)
+                .addCheckbox(Component.translatable("catalogue.gui.filters.configs_only"), OPTION_CONFIGS_ONLY, newValue -> {
+                    this.modList.filterAndUpdateList();
+                    return false;
+                })
+                .addCheckbox(Component.translatable("catalogue.gui.filters.updates_only"), OPTION_UPDATES_ONLY, newValue -> {
+                    this.modList.filterAndUpdateList();
+                    return false;
+                }))
+            .addMenu(Component.translatable("catalogue.gui.sort"), DropdownMenu.builder(this)
+                .setMinItemSize(60, 16)
+                .setAlignment(DropdownMenu.Alignment.END_TOP)
+                .addItem(Component.translatable("catalogue.gui.sort.alphabetically"), () -> {
+                    OPTION_SORT.setValue(SORT_ALPHABETICALLY);
+                    this.modList.filterAndUpdateList();
+                })
+                .addItem(Component.translatable("catalogue.gui.sort.alphabetically_reverse"), () -> {
+                    OPTION_SORT.setValue(SORT_ALPHABETICALLY_REVERSED);
+                    this.modList.filterAndUpdateList();
+                }))
+            .addCheckbox(Component.translatable("catalogue.gui.hide_libraries"), OPTION_HIDE_LIBRARIES, newValue -> {
+                this.modList.filterAndUpdateList();
+                return false;
+            }).build();
 
-        this.modList.filterAndUpdateList(this.searchTextField.getValue());
+        this.addRenderableWidget(new CatalogueIconButton(this.modList.getRight() - 16, 6, 40, 0, 16, 16, menu::toggle));
+
+        // Filter the mod list
+        this.modList.filterAndUpdateList();
 
         // Resizing window causes all widgets to be recreated, therefore need to update selected info
         if(this.selectedModData != null)
@@ -171,7 +215,7 @@ public class CatalogueModListScreen extends Screen
                 this.modList.centerScrollOn(entry);
             }
         }
-        this.updateSearchField(this.searchTextField.getValue());
+        this.updateSearchFieldSuggestion(this.searchTextField.getValue());
     }
 
     private void openLink(@Nullable String url)
@@ -208,6 +252,11 @@ public class CatalogueModListScreen extends Screen
             graphics.blit(textureId, 10, 9, 10, 10, 0.0F, 0.0F, size.width, size.height, size.width, size.height);
         }
 
+        if(this.menu != null)
+        {
+            this.menu.render(graphics, mouseX, mouseY, partialTicks);
+        }
+
         if(ClientHelper.isMouseWithin(10, 9, 10, 10, mouseX, mouseY))
         {
             this.setActiveTooltip(Component.translatable("catalogue.gui.info"));
@@ -235,7 +284,7 @@ public class CatalogueModListScreen extends Screen
         }
     }
 
-    private void updateSearchField(String value)
+    private void updateSearchFieldSuggestion(String value)
     {
         if(value.isEmpty())
         {
@@ -269,8 +318,6 @@ public class CatalogueModListScreen extends Screen
      */
     private void drawModList(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks)
     {
-        ClientServices.PLATFORM.drawUpdateIcon(graphics, this.modList.getRight() - 24, 10);
-
         this.modList.render(graphics, mouseX, mouseY, partialTicks);
         graphics.drawString(this.font, ClientServices.COMPONENT.createTitle().withStyle(ChatFormatting.BOLD).withStyle(ChatFormatting.WHITE), 70, 10, 0xFFFFFF);
         this.searchTextField.render(graphics, mouseX, mouseY, partialTicks);
@@ -412,6 +459,14 @@ public class CatalogueModListScreen extends Screen
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button)
     {
+        if(this.menu != null)
+        {
+            if(!this.menu.mouseClicked(mouseX, mouseY, button))
+            {
+                this.setMenu(null);
+            }
+            return true;
+        }
         if(ClientHelper.isMouseWithin(10, 9, 10, 10, (int) mouseX, (int) mouseY) && button == GLFW.GLFW_MOUSE_BUTTON_1)
         {
             this.openLink("https://www.curseforge.com/minecraft/mc-mods/catalogue");
@@ -709,16 +764,29 @@ public class CatalogueModListScreen extends Screen
             return this.width - (this.scrollbarVisible() ? 6 : 0);
         }
 
-        public void filterAndUpdateList(String text)
+        public void filterAndUpdateList()
         {
-            Predicate<IModData> filter = (ClientServices.PLATFORM.isForge() || ClientServices.PLATFORM.isForge()) ?
-                    data -> !updatesButton.isSelected() || data.getUpdate() != null :
-                    data -> data.getType() == IModData.Type.DEFAULT || data.getModId().equals("minecraft") || data.getModId().equals("fabric-api") || updatesButton.isSelected();
+            Predicate<IModData> searchPredicate = data -> {
+                String query = OPTION_QUERY.getValue();
+                return data.getDisplayName().toLowerCase(Locale.ENGLISH).contains(query.toLowerCase(Locale.ENGLISH));
+            };
+            Predicate<IModData> filterPredicate = data -> {
+                if(OPTION_CONFIGS_ONLY.booleanValue() && !data.hasConfig()) {
+                    return false;
+                }
+                if(OPTION_UPDATES_ONLY.booleanValue() && data.getUpdate() == null) {
+                    return false;
+                }
+                if(OPTION_HIDE_LIBRARIES.booleanValue() && data.getType() == IModData.Type.LIBRARY) {
+                    return false;
+                }
+                return true;
+            };
             List<ModListEntry> entries = CACHED_MODS.values().stream()
-                .filter(info -> info.getDisplayName().toLowerCase(Locale.ENGLISH).contains(text.toLowerCase(Locale.ENGLISH)))
-                .filter(filter)
+                .filter(searchPredicate)
+                .filter(filterPredicate)
                 .map(info -> new ModListEntry(info, this))
-                .sorted(SORT)
+                .sorted(OPTION_SORT.getValue())
                 .collect(Collectors.toList());
             this.replaceEntries(entries);
             this.setScrollAmount(0);
