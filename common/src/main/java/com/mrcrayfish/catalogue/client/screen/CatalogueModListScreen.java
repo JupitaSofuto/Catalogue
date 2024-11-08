@@ -264,7 +264,9 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks)
     {
         this.activeTooltip = null;
-        super.render(graphics, mouseX, mouseY, partialTicks);
+
+        boolean inMenu = this.menu != null;
+        super.render(graphics, inMenu ? -1000 : mouseX, inMenu ? -1000 : mouseY, partialTicks);
 
         Optional<IModData> optional = Optional.ofNullable(CACHED_MODS.get(Constants.MOD_ID));
         optional.ifPresent(this::loadAndCacheLogo);
@@ -280,22 +282,24 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         {
             this.menu.render(graphics, mouseX, mouseY, partialTicks);
         }
-
-        if(ClientHelper.isMouseWithin(10, 9, 10, 10, mouseX, mouseY))
+        else
         {
-            this.setActiveTooltip(Component.translatable("catalogue.gui.info"));
-            this.tooltipYOffset = 10;
-        }
+            if(ClientHelper.isMouseWithin(10, 9, 10, 10, mouseX, mouseY))
+            {
+                this.setActiveTooltip(Component.translatable("catalogue.gui.info"));
+                this.tooltipYOffset = 10;
+            }
 
-        if(this.optionsButton.isMouseOver(mouseX, mouseY))
-        {
-            this.setActiveTooltip(Component.translatable("catalogue.gui.options"));
-            this.tooltipYOffset = 10;
-        }
+            if(this.optionsButton.isMouseOver(mouseX, mouseY))
+            {
+                this.setActiveTooltip(Component.translatable("catalogue.gui.options"));
+                this.tooltipYOffset = 10;
+            }
 
-        if(this.modFolderButton.isMouseOver(mouseX, mouseY))
-        {
-            this.setActiveTooltip(Component.translatable("catalogue.gui.open_mods_folder"));
+            if(this.modFolderButton.isMouseOver(mouseX, mouseY))
+            {
+                this.setActiveTooltip(Component.translatable("catalogue.gui.open_mods_folder"));
+            }
         }
 
         if(this.activeTooltip != null)
@@ -905,7 +909,8 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         public void render(GuiGraphics graphics, int index, int top, int left, int rowWidth, int rowHeight, int mouseX, int mouseY, boolean hovered, float partialTicks)
         {
             // Draws mod name and version
-            boolean drawFavouriteIcon = !this.list.shouldHideFavourites() && ClientHelper.isMouseWithin(left + rowWidth - rowHeight - 4, top, rowHeight + 4, rowHeight, mouseX, mouseY) || FAVOURITES.has(this.data.getModId());
+            boolean inOptionsMenu = CatalogueModListScreen.this.menu != null;
+            boolean drawFavouriteIcon = !inOptionsMenu && !this.list.shouldHideFavourites() && ClientHelper.isMouseWithin(left + rowWidth - rowHeight - 4, top, rowHeight + 4, rowHeight, mouseX, mouseY) || FAVOURITES.has(this.data.getModId());
             graphics.drawString(CatalogueModListScreen.this.font, this.getFormattedModName(drawFavouriteIcon), left + 24, top + 2, 0xFFFFFF);
             graphics.drawString(CatalogueModListScreen.this.font, Component.literal(this.data.getVersion()).withStyle(ChatFormatting.GRAY), left + 24, top + 12, 0xFFFFFF);
 
@@ -924,7 +929,7 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
                 this.button.setX(left + rowWidth - this.button.getWidth() - 8);
                 this.button.setY(top + (rowHeight - this.button.getHeight()) / 2);
                 this.button.render(graphics, mouseX, mouseY, partialTicks);
-                if(this.button.isMouseOver(mouseX, mouseY))
+                if(!inOptionsMenu && this.button.isMouseOver(mouseX, mouseY))
                 {
                     Component label = !FAVOURITES.has(this.data.getModId()) ?
                         Component.translatable("catalogue.gui.favourite") :
