@@ -13,6 +13,8 @@
     "catalogue.gui.version": "Version: %s",
     "catalogue.gui.update_available": "Update: %s",
     "catalogue.gui.info": "This menu is provided by Catalogue. Click here to open the CurseForge page for this mod!",
+    "catalogue.gui.favourite": "Mark as Favorite",
+    "catalogue.gui.remove_favourite": "Remove as Favorite",
     "catalogue.gui.options": "Options",
     "catalogue.gui.filters": "Filters",
     "catalogue.gui.filters.configs_only": "Mods with Configs",

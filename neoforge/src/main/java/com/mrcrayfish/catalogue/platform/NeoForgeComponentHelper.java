@@ -28,12 +28,6 @@ public class NeoForgeComponentHelper implements IComponentHelper
     }
 
     @Override
-    public Component createFilterUpdates()
-    {
-        return Component.translatable("fml.menu.mods.filter_updates");
-    }
-
-    @Override
     public String getCreditsKey()
     {
         return "catalogue.gui.credits";

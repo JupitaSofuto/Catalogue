@@ -77,7 +77,7 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
     private static final Favourites FAVOURITES = new Favourites();
     private static final Comparator<ModListEntry> SORT_ALPHABETICALLY = Comparator.comparing(o -> o.getData().getDisplayName());
     private static final Comparator<ModListEntry> SORT_ALPHABETICALLY_REVERSED = SORT_ALPHABETICALLY.reversed();
-    private static final Comparator<ModListEntry> SORT_FAVOURITES_FIRST = Comparator.comparing(ModListEntry::getData, Comparator.comparing(data -> FAVOURITES.has(data.getModId()))).thenComparing(SORT_ALPHABETICALLY);
+    private static final Comparator<ModListEntry> SORT_FAVOURITES_FIRST = Comparator.comparing(ModListEntry::getData, Comparator.comparing(data -> FAVOURITES.has(data.getModId()))).reversed().thenComparing(SORT_ALPHABETICALLY);
     private static final MutableObject<String> OPTION_QUERY = new MutableObject<>("");
     private static final MutableBoolean OPTION_HIDE_LIBRARIES = new MutableBoolean(true);
     private static final MutableBoolean OPTION_CONFIGS_ONLY = new MutableBoolean(false);
@@ -96,6 +96,7 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
     private static boolean loaded = false;
 
     private final Screen parentScreen;
+    private Button optionsButton;
     private EditBox searchTextField;
     private ModList modList;
     private IModData selectedModData;
@@ -223,7 +224,7 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
                 return false;
             }).build();
 
-        this.addRenderableWidget(new CatalogueIconButton(this.modList.getRight() - 16, 6, 40, 0, 16, 16, menu::toggle));
+        this.optionsButton = this.addRenderableWidget(new CatalogueIconButton(this.modList.getRight() - 16, 6, 40, 0, 16, 16, menu::toggle));
 
         // Filter the mod list
         this.modList.filterAndUpdateList();
@@ -283,6 +284,12 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         if(ClientHelper.isMouseWithin(10, 9, 10, 10, mouseX, mouseY))
         {
             this.setActiveTooltip(Component.translatable("catalogue.gui.info"));
+            this.tooltipYOffset = 10;
+        }
+
+        if(this.optionsButton.isMouseOver(mouseX, mouseY))
+        {
+            this.setActiveTooltip(Component.translatable("catalogue.gui.options"));
             this.tooltipYOffset = 10;
         }
 
@@ -350,12 +357,6 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         this.modList.render(graphics, mouseX, mouseY, partialTicks);
         graphics.drawString(this.font, ClientServices.COMPONENT.createTitle().withStyle(ChatFormatting.BOLD).withStyle(ChatFormatting.WHITE), 70, 10, 0xFFFFFF);
         this.searchTextField.render(graphics, mouseX, mouseY, partialTicks);
-
-        if(ClientHelper.isMouseWithin(this.modList.getRight() - 14, 7, 14, 14, mouseX, mouseY))
-        {
-            this.setActiveTooltip(ClientServices.COMPONENT.createFilterUpdates());
-            this.tooltipYOffset = 10;
-        }
     }
 
     /**
@@ -904,7 +905,8 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         public void render(GuiGraphics graphics, int index, int top, int left, int rowWidth, int rowHeight, int mouseX, int mouseY, boolean hovered, float partialTicks)
         {
             // Draws mod name and version
-            graphics.drawString(CatalogueModListScreen.this.font, this.getFormattedModName(mouseX, mouseY), left + 24, top + 2, 0xFFFFFF);
+            boolean drawFavouriteIcon = !this.list.shouldHideFavourites() && ClientHelper.isMouseWithin(left + rowWidth - rowHeight - 4, top, rowHeight + 4, rowHeight, mouseX, mouseY) || FAVOURITES.has(this.data.getModId());
+            graphics.drawString(CatalogueModListScreen.this.font, this.getFormattedModName(drawFavouriteIcon), left + 24, top + 2, 0xFFFFFF);
             graphics.drawString(CatalogueModListScreen.this.font, Component.literal(this.data.getVersion()).withStyle(ChatFormatting.GRAY), left + 24, top + 12, 0xFFFFFF);
 
             // Draw image icon or fallback to item icon
@@ -917,12 +919,18 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
                 this.data.drawUpdateIcon(graphics, update, left + rowWidth - 8 - 10, top + 6);
             }
 
-            // Draw the favourite button on the right side
-            if(!this.list.shouldHideFavourites() && this.isMouseOver(mouseX, mouseY) || FAVOURITES.has(this.data.getModId()))
+            if(drawFavouriteIcon)
             {
                 this.button.setX(left + rowWidth - this.button.getWidth() - 8);
                 this.button.setY(top + (rowHeight - this.button.getHeight()) / 2);
                 this.button.render(graphics, mouseX, mouseY, partialTicks);
+                if(this.button.isMouseOver(mouseX, mouseY))
+                {
+                    Component label = !FAVOURITES.has(this.data.getModId()) ?
+                        Component.translatable("catalogue.gui.favourite") :
+                        Component.translatable("catalogue.gui.remove_favourite");
+                    CatalogueModListScreen.this.setActiveTooltip(label);
+                }
             }
         }
 
@@ -1008,17 +1016,18 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
             return Items.GRASS_BLOCK;
         }
 
-        private Component getFormattedModName(int mouseX, int mouseY)
+        private Component getFormattedModName(boolean favouriteIconVisible)
         {
             String name = this.data.getDisplayName();
-            int width = this.list.getRowWidth() - (this.list.getMaxScroll() > 5 ? 30 : 24);
-            if(this.isMouseOver(mouseX, mouseY) || FAVOURITES.has(this.data.getModId()))
+            int paddingEnd = 4;
+            int trimWidth = this.list.getRowWidth() - 24 - paddingEnd;
+            if(favouriteIconVisible)
             {
-                width -= 11;
+                trimWidth -= 18;
             }
-            if(CatalogueModListScreen.this.font.width(name) > width)
+            if(CatalogueModListScreen.this.font.width(name) > trimWidth)
             {
-                name = CatalogueModListScreen.this.font.plainSubstrByWidth(name, width - 10).trim() + "...";
+                name = CatalogueModListScreen.this.font.plainSubstrByWidth(name, trimWidth - 8).trim() + "...";
             }
             MutableComponent title = Component.literal(name);
             if(this.data.isInternal())

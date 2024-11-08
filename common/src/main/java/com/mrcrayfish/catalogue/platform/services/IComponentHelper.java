@@ -14,7 +14,5 @@ public interface IComponentHelper
 
     MutableComponent createFormatted(String formatKey, String value);
 
-    Component createFilterUpdates();
-
     String getCreditsKey();
 }

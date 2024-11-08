@@ -28,12 +28,6 @@ public class FabricComponentHelper implements IComponentHelper
     }
 
     @Override
-    public Component createFilterUpdates()
-    {
-        return Component.translatable("catalogue.gui.internal_libraries");
-    }
-
-    @Override
     public String getCreditsKey()
     {
         return "catalogue.gui.contributors";
