@@ -18,6 +18,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.components.AbstractSelectionList;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -50,13 +51,22 @@ import org.joml.Matrix4f;
 import org.lwjgl.glfw.GLFW;
 
 import org.jetbrains.annotations.Nullable;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Predicate;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -64,12 +74,15 @@ import java.util.stream.Collectors;
  */
 public class CatalogueModListScreen extends Screen implements DropdownMenuHandler
 {
+    private static final Favourites FAVOURITES = new Favourites();
     private static final Comparator<ModListEntry> SORT_ALPHABETICALLY = Comparator.comparing(o -> o.getData().getDisplayName());
     private static final Comparator<ModListEntry> SORT_ALPHABETICALLY_REVERSED = SORT_ALPHABETICALLY.reversed();
+    private static final Comparator<ModListEntry> SORT_FAVOURITES_FIRST = Comparator.comparing(ModListEntry::getData, Comparator.comparing(data -> FAVOURITES.has(data.getModId()))).thenComparing(SORT_ALPHABETICALLY);
     private static final MutableObject<String> OPTION_QUERY = new MutableObject<>("");
     private static final MutableBoolean OPTION_HIDE_LIBRARIES = new MutableBoolean(true);
     private static final MutableBoolean OPTION_CONFIGS_ONLY = new MutableBoolean(false);
     private static final MutableBoolean OPTION_UPDATES_ONLY = new MutableBoolean(false);
+    private static final MutableBoolean OPTION_FAVOURITES_ONLY = new MutableBoolean(false);
     private static final MutableObject<Comparator<ModListEntry>> OPTION_SORT = new MutableObject<>(SORT_ALPHABETICALLY);
     private static final ResourceLocation MISSING_BANNER = ResourceLocation.fromNamespaceAndPath(Constants.MOD_ID, "textures/gui/missing_banner.png");
     private static final ResourceLocation MISSING_BACKGROUND = ResourceLocation.fromNamespaceAndPath(Constants.MOD_ID, "textures/gui/missing_background.png");
@@ -77,6 +90,7 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
     private static final Map<String, Pair<ResourceLocation, Dimension>> IMAGE_ICON_CACHE = new HashMap<>();
     private static final Map<String, Item> ITEM_ICON_CACHE = new HashMap<>();
     private static final Map<String, IModData> CACHED_MODS = new HashMap<>();
+    private static final Pattern MOD_ID_PATTERN = Pattern.compile("^[a-z][a-z0-9_]{1,63}$");
     private static ResourceLocation cachedBackground;
     private static boolean loaded = false;
 
@@ -101,8 +115,8 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         {
             ClientServices.PLATFORM.getAllModData().forEach(data -> CACHED_MODS.put(data.getModId(), data));
             CACHED_MODS.put("minecraft", new MinecraftModData()); // Override minecraft
+            FAVOURITES.load();
             loaded = true;
-            Services
         }
     }
 
@@ -182,6 +196,10 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
                 .addCheckbox(Component.translatable("catalogue.gui.filters.updates_only"), OPTION_UPDATES_ONLY, newValue -> {
                     this.modList.filterAndUpdateList();
                     return false;
+                })
+                .addCheckbox(Component.translatable("catalogue.gui.filters.favourites"), OPTION_FAVOURITES_ONLY, newValue -> {
+                    this.modList.filterAndUpdateList();
+                    return false;
                 }))
             .addMenu(Component.translatable("catalogue.gui.sort"), DropdownMenu.builder(this)
                 .setMinItemSize(60, 16)
@@ -192,6 +210,10 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
                 })
                 .addItem(Component.translatable("catalogue.gui.sort.alphabetically_reverse"), () -> {
                     OPTION_SORT.setValue(SORT_ALPHABETICALLY_REVERSED);
+                    this.modList.filterAndUpdateList();
+                })
+                .addItem(Component.translatable("catalogue.gui.sort.favourites_first"), () -> {
+                    OPTION_SORT.setValue(SORT_FAVOURITES_FIRST);
                     this.modList.filterAndUpdateList();
                 }))
             .addCheckbox(Component.translatable("catalogue.gui.hide_libraries"), OPTION_HIDE_LIBRARIES, newValue -> {
@@ -273,6 +295,12 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
             graphics.renderTooltip(this.font, this.activeTooltip, mouseX, mouseY + this.tooltipYOffset);
             this.tooltipYOffset = 0;
         }
+    }
+
+    @Override
+    public void removed()
+    {
+        FAVOURITES.save();
     }
 
     private void updateSelectedModList()
@@ -728,6 +756,29 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
 
     private class ModList extends ObjectSelectionList<ModListEntry>
     {
+        private static final Predicate<IModData> SEARCH_PREDICATE = data -> {
+            String query = OPTION_QUERY.getValue();
+            return data.getDisplayName()
+                .toLowerCase(Locale.ENGLISH)
+                .contains(query.toLowerCase(Locale.ENGLISH));
+        };
+        private static final Predicate<IModData> FILTER_PREDICATE = data -> {
+            if(OPTION_CONFIGS_ONLY.booleanValue() && !data.hasConfig()) {
+                return false;
+            }
+            if(OPTION_UPDATES_ONLY.booleanValue() && data.getUpdate() == null) {
+                return false;
+            }
+            if(OPTION_HIDE_LIBRARIES.booleanValue() && data.getType() == IModData.Type.LIBRARY) {
+                return false;
+            }
+            if(OPTION_FAVOURITES_ONLY.booleanValue() && !FAVOURITES.has(data.getModId())) {
+                return false;
+            }
+            return true;
+        };
+        private boolean hideFavourites;
+
         public ModList()
         {
             super(CatalogueModListScreen.this.minecraft, 150, CatalogueModListScreen.this.height - 35 - 45, 45, 26);
@@ -766,30 +817,14 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
 
         public void filterAndUpdateList()
         {
-            Predicate<IModData> searchPredicate = data -> {
-                String query = OPTION_QUERY.getValue();
-                return data.getDisplayName().toLowerCase(Locale.ENGLISH).contains(query.toLowerCase(Locale.ENGLISH));
-            };
-            Predicate<IModData> filterPredicate = data -> {
-                if(OPTION_CONFIGS_ONLY.booleanValue() && !data.hasConfig()) {
-                    return false;
-                }
-                if(OPTION_UPDATES_ONLY.booleanValue() && data.getUpdate() == null) {
-                    return false;
-                }
-                if(OPTION_HIDE_LIBRARIES.booleanValue() && data.getType() == IModData.Type.LIBRARY) {
-                    return false;
-                }
-                return true;
-            };
             List<ModListEntry> entries = CACHED_MODS.values().stream()
-                .filter(searchPredicate)
-                .filter(filterPredicate)
+                .filter(SEARCH_PREDICATE)
+                .filter(FILTER_PREDICATE)
                 .map(info -> new ModListEntry(info, this))
                 .sorted(OPTION_SORT.getValue())
                 .collect(Collectors.toList());
             this.replaceEntries(entries);
-            this.setScrollAmount(0);
+            this.clampScrollAmount();
         }
 
         @Nullable
@@ -836,18 +871,42 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         {
             super.centerScrollOn(entry);
         }
+
+        @Override
+        protected void updateScrollingState(double mouseX, double mouseY, int button)
+        {
+            super.updateScrollingState(mouseX, mouseY, button);
+            this.hideFavourites = button == GLFW.GLFW_MOUSE_BUTTON_LEFT && mouseX >= this.getScrollbarPosition() && mouseY < this.getScrollbarPosition() + 6;
+        }
+
+        @Override
+        public boolean mouseReleased(double mouseX, double mouseY, int button)
+        {
+            if(this.hideFavourites && button == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+            {
+                this.hideFavourites = false;
+            }
+            return super.mouseReleased(mouseX, mouseY, button);
+        }
+
+        public boolean shouldHideFavourites()
+        {
+            return this.hideFavourites;
+        }
     }
 
     private class ModListEntry extends ObjectSelectionList.Entry<ModListEntry>
     {
         private final IModData data;
         private final ModList list;
+        private final PinnedButton button;
         private ItemStack icon;
 
         public ModListEntry(IModData data, ModList list)
         {
             this.data = data;
             this.list = list;
+            this.button = new PinnedButton(data.getModId());
             this.icon = new ItemStack(this.getItemIcon());
         }
 
@@ -855,51 +914,56 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         public void render(GuiGraphics graphics, int index, int top, int left, int rowWidth, int rowHeight, int mouseX, int mouseY, boolean hovered, float partialTicks)
         {
             // Draws mod name and version
-            graphics.drawString(CatalogueModListScreen.this.font, this.getFormattedModName(), left + 24, top + 2, 0xFFFFFF);
-            graphics.drawString(CatalogueModListScreen.this.font, Component.literal(this.data.getVersion().toString()).withStyle(ChatFormatting.GRAY), left + 24, top + 12, 0xFFFFFF);
+            graphics.drawString(CatalogueModListScreen.this.font, this.getFormattedModName(mouseX, mouseY), left + 24, top + 2, 0xFFFFFF);
+            graphics.drawString(CatalogueModListScreen.this.font, Component.literal(this.data.getVersion()).withStyle(ChatFormatting.GRAY), left + 24, top + 12, 0xFFFFFF);
 
-            CatalogueModListScreen.this.loadAndCacheIcon(this.data);
-
-            // Draw icon
-            if(IMAGE_ICON_CACHE.containsKey(this.data.getModId()) && IMAGE_ICON_CACHE.get(this.data.getModId()).getLeft() != null)
-            {
-                ResourceLocation logoResource = TextureManager.INTENTIONAL_MISSING_TEXTURE;
-                Dimension size = new Dimension(16, 16);
-
-                Pair<ResourceLocation, Dimension> logoInfo = IMAGE_ICON_CACHE.get(this.data.getModId());
-                if(logoInfo != null && logoInfo.getLeft() != null)
-                {
-                    logoResource = logoInfo.getLeft();
-                    size = logoInfo.getRight();
-                }
-
-                RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-                RenderSystem.enableBlend();
-                graphics.blit(logoResource, left + 4, top + 3, 16, 16, 0.0F, 0.0F, size.width, size.height, size.width, size.height);
-                RenderSystem.disableBlend();
-            }
-            else
-            {
-                // Some items from mods utilise the player or world instance to render. This means
-                // rendering the item from the main menu may result in a crash since mods don't check
-                // for null pointers. Switches the icon to a grass block if an exception occurs.
-                try
-                {
-                    graphics.renderFakeItem(this.icon, left + 4, top + 3);
-                }
-                catch(Exception e)
-                {
-                    Constants.LOG.debug("Failed to draw icon for mod '{}'", this.data.getModId());
-                    ITEM_ICON_CACHE.put(this.data.getModId(), Items.GRASS_BLOCK);
-                    this.icon = new ItemStack(Items.GRASS_BLOCK);
-                }
-            }
+            this.drawIcon(graphics, top, left);
 
             // Draws an icon if there is an update for the mod
             IModData.Update update = this.data.getUpdate();
             if(update != null)
             {
                 this.data.drawUpdateIcon(graphics, update, left + rowWidth - 8 - 10, top + 6);
+            }
+
+            // Render the favourite button
+            if(!this.list.shouldHideFavourites() && this.isMouseOver(mouseX, mouseY) || FAVOURITES.has(this.data.getModId()))
+            {
+                this.button.setX(left + rowWidth - this.button.getWidth() - 8);
+                this.button.setY(top + (rowHeight - this.button.getHeight()) / 2);
+                this.button.render(graphics, mouseX, mouseY, partialTicks);
+            }
+        }
+
+        private void drawIcon(GuiGraphics graphics, int top, int left)
+        {
+            CatalogueModListScreen.this.loadAndCacheIcon(this.data);
+            final Pair<ResourceLocation, Dimension> defaultIcon = Pair.of(TextureManager.INTENTIONAL_MISSING_TEXTURE, new Dimension(16, 16));
+
+            // Draw icon
+            if(IMAGE_ICON_CACHE.containsKey(this.data.getModId()) && IMAGE_ICON_CACHE.get(this.data.getModId()).getLeft() != null)
+            {
+                Pair<ResourceLocation, Dimension> iconInfo = IMAGE_ICON_CACHE.getOrDefault(this.data.getModId(), defaultIcon);
+                Dimension size = iconInfo.getRight();
+                RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+                RenderSystem.enableBlend();
+                graphics.blit(iconInfo.getLeft(), left + 4, top + 3, 16, 16, 0.0F, 0.0F, size.width, size.height, size.width, size.height);
+                RenderSystem.disableBlend();
+                return;
+            }
+
+            try
+            {
+                // Some items from mods utilise the player or world instance to render. This means
+                // rendering the item from the main menu may result in a crash since mods don't check
+                // for null pointers. Switches the icon to a grass block if an exception occurs.
+                graphics.renderFakeItem(this.icon, left + 4, top + 3);
+            }
+            catch(Exception e)
+            {
+                Constants.LOG.debug("Failed to draw icon for mod '{}'", this.data.getModId());
+                ITEM_ICON_CACHE.put(this.data.getModId(), Items.GRASS_BLOCK);
+                this.icon = new ItemStack(Items.GRASS_BLOCK);
             }
         }
 
@@ -957,13 +1021,17 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
             return Items.GRASS_BLOCK;
         }
 
-        private Component getFormattedModName()
+        private Component getFormattedModName(int mouseX, int mouseY)
         {
             String name = this.data.getDisplayName();
-            int width = this.list.getRowWidth() - (this.list.getMaxScroll() > 0 ? 30 : 24);
+            int width = this.list.getRowWidth() - (this.list.getMaxScroll() > 5 ? 30 : 24);
+            if(this.isMouseOver(mouseX, mouseY) || FAVOURITES.has(this.data.getModId()))
+            {
+                width -= 11;
+            }
             if(CatalogueModListScreen.this.font.width(name) > width)
             {
-                name = CatalogueModListScreen.this.font.plainSubstrByWidth(name, width - 10) + "...";
+                name = CatalogueModListScreen.this.font.plainSubstrByWidth(name, width - 10).trim() + "...";
             }
             MutableComponent title = Component.literal(name);
             if(this.data.isInternal())
@@ -976,6 +1044,8 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         @Override
         public boolean mouseClicked(double mouseX, double mouseY, int button)
         {
+            if(this.button.mouseClicked(mouseX, mouseY, button))
+                return false;
             CatalogueModListScreen.this.setSelectedModData(this.data);
             this.list.setSelected(this);
             return false;
@@ -990,6 +1060,39 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         public Component getNarration()
         {
             return Component.literal(this.data.getDisplayName());
+        }
+
+        private class PinnedButton extends AbstractButton
+        {
+            private static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath(Constants.MOD_ID, "textures/gui/icons.png");
+
+            private final String modId;
+
+            public PinnedButton(String modId)
+            {
+                super(0, 0, 10, 10, CommonComponents.EMPTY);
+                this.modId = modId;
+            }
+
+            @Override
+            protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick)
+            {
+                int textureU = FAVOURITES.has(this.modId) ? 10 : 0;
+                graphics.blit(TEXTURE, this.getX(), this.getY(), textureU, 10, 10, 10, 64, 64);
+            }
+
+            @Override
+            public void onPress()
+            {
+                FAVOURITES.toggle(this.modId);
+                ModListEntry.this.list.filterAndUpdateList();
+            }
+
+            @Override
+            protected void updateWidgetNarration(NarrationElementOutput output)
+            {
+                this.defaultButtonNarrationText(output);
+            }
         }
     }
 
@@ -1108,4 +1211,82 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
     }
     
     private record Dimension(int width, int height) {}
+
+    private static class Favourites
+    {
+        private final Set<String> mods = new HashSet<>();
+        private boolean needsSave;
+        private Path file;
+
+        public void toggle(String modId)
+        {
+            if(!this.mods.remove(modId))
+            {
+                this.mods.add(modId);
+            }
+            this.needsSave = true;
+        }
+
+        public boolean has(String modId)
+        {
+            return this.mods.contains(modId);
+        }
+
+        private void init()
+        {
+            try
+            {
+                Path configDir = ClientServices.PLATFORM.getConfigDirectory();
+                Path file = configDir.resolve("catalogue_favourites.txt");
+                if(!Files.exists(file))
+                {
+                    Files.createFile(file);
+                }
+                this.file = file;
+            }
+            catch(IOException e)
+            {
+                throw new RuntimeException(e);
+            }
+        }
+
+        private void load()
+        {
+            try
+            {
+                this.init();
+                this.mods.clear();
+                Predicate<String> modIdRegex = MOD_ID_PATTERN.asMatchPredicate();
+                Files.readAllLines(file).forEach(s -> {
+                    if(modIdRegex.test(s) && ClientServices.PLATFORM.isModLoaded(s)) {
+                        this.mods.add(s);
+                    }
+                });
+                // Save immediately to remove invalid lines
+                this.needsSave = true;
+                this.save();
+            }
+            catch(IOException e)
+            {
+                throw new RuntimeException(e);
+            }
+        }
+
+        private void save()
+        {
+            if(!this.needsSave)
+                return;
+
+            try
+            {
+                this.needsSave = false;
+                this.init();
+                Files.write(this.file, this.mods, StandardCharsets.UTF_8, StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            }
+            catch(IOException e)
+            {
+                throw new RuntimeException(e);
+            }
+        }
+    }
 }

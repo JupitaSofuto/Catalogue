@@ -17,8 +17,10 @@
     "catalogue.gui.filters": "Filters",
     "catalogue.gui.filters.configs_only": "Mods with Configs",
     "catalogue.gui.filters.updates_only": "Mods with Updates",
+    "catalogue.gui.filters.favourites": "Favorites Only",
     "catalogue.gui.sort": "Sort",
-    "catalogue.gui.sort.alphabetically": "A-Z",
-    "catalogue.gui.sort.alphabetically_reverse": "Z-A",
+    "catalogue.gui.sort.alphabetically": "A to Z",
+    "catalogue.gui.sort.alphabetically_reverse": "Z to A",
+    "catalogue.gui.sort.favourites_first": "Favorites First",
     "catalogue.gui.hide_libraries": "Hide Libraries"
 }

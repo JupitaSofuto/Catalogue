@@ -14,6 +14,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -30,6 +31,12 @@ public class FabricPlatformHelper implements IPlatformHelper
     public File getModDirectory()
     {
         return FabricLoaderImpl.INSTANCE.getModsDirectory();
+    }
+
+    @Override
+    public Path getConfigDirectory()
+    {
+        return FabricLoaderImpl.INSTANCE.getConfigDir();
     }
 
     @Override
@@ -53,4 +60,10 @@ public class FabricPlatformHelper implements IPlatformHelper
 
     @Override
     public void drawUpdateIcon(GuiGraphics graphics, int x, int y) {}
+
+    @Override
+    public boolean isModLoaded(String modId)
+    {
+        return FabricLoader.getInstance().isModLoaded(modId);
+    }
 }

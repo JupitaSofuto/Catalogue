@@ -46,6 +46,12 @@ public class NeoForgePlatformHelper implements IPlatformHelper
     }
 
     @Override
+    public Path getConfigDirectory()
+    {
+        return FMLPaths.CONFIGDIR.get();
+    }
+
+    @Override
     public void loadNativeImage(String modId, String resource, Consumer<NativeImage> consumer)
     {
         try
@@ -76,5 +82,11 @@ public class NeoForgePlatformHelper implements IPlatformHelper
     {
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
         graphics.blit(NeoForgeModData.VERSION_CHECK_ICONS, x, y, 24, 0, 8, 8, 64, 16);
+    }
+
+    @Override
+    public boolean isModLoaded(String modId)
+    {
+        return ModList.get().isLoaded(modId);
     }
 }

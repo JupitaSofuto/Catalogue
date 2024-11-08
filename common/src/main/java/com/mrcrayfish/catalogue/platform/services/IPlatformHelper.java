@@ -6,6 +6,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.world.item.Item;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -14,6 +15,8 @@ public interface IPlatformHelper
     List<IModData> getAllModData();
 
     File getModDirectory();
+
+    Path getConfigDirectory();
 
     default boolean isForge()
     {
@@ -25,4 +28,6 @@ public interface IPlatformHelper
     boolean isCustomItemRendering(Item item);
 
     void drawUpdateIcon(GuiGraphics graphics, int x, int y);
+
+    boolean isModLoaded(String modId);
 }
