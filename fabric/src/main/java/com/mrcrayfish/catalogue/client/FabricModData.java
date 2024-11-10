@@ -229,6 +229,29 @@ public class FabricModData implements IModData
             return GENERATED;
         }
 
+        // Use ModMenu custom metadata to determine if a library
+        CustomValue modMenuData = metadata.getCustomValue("modmenu");
+        if(modMenuData != null && modMenuData.getType() == CustomValue.CvType.OBJECT)
+        {
+            CustomValue.CvObject object = modMenuData.getAsObject();
+            CustomValue badges = object.get("badges");
+            if(badges != null && badges.getType() == CustomValue.CvType.ARRAY)
+            {
+                CustomValue.CvArray array = badges.getAsArray();
+                for(CustomValue badge : array)
+                {
+                    if(badge.getType() != CustomValue.CvType.STRING)
+                        continue;
+
+                    String type = badge.getAsString();
+                    if(type.equals("library"))
+                    {
+                        return LIBRARY;
+                    }
+                }
+            }
+        }
+
         return DEFAULT;
     }
 }
