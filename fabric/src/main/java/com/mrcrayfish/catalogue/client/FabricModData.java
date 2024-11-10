@@ -184,7 +184,7 @@ public class FabricModData implements IModData
     }
 
     @Override
-    public boolean isInternal()
+    public boolean isLibrary()
     {
         return this.type == LIBRARY || this.type == GENERATED;
     }

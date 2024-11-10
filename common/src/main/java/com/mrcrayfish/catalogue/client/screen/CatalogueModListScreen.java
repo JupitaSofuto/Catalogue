@@ -18,7 +18,6 @@ import com.mrcrayfish.catalogue.platform.ClientServices;
 import net.minecraft.ChatFormatting;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.components.AbstractSelectionList;
@@ -97,7 +96,7 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
     private static final Pattern MOD_ID_PATTERN = Pattern.compile("^[a-z][a-z0-9_]{1,63}$");
     private static final Supplier<Pair<Integer, Integer>> COUNTS = Suppliers.memoize(() -> {
         int[] counts = new int[2];
-        CACHED_MODS.forEach((modId, data) -> counts[data.isInternal() ? 1 : 0]++);
+        CACHED_MODS.forEach((modId, data) -> counts[data.isLibrary() ? 1 : 0]++);
         return Pair.of(counts[0], counts[1]);
     });
     private static ResourceLocation cachedBackground;
@@ -811,7 +810,7 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
             if(OPTION_UPDATES_ONLY.booleanValue() && data.getUpdate() == null) {
                 return false;
             }
-            if(OPTION_HIDE_LIBRARIES.booleanValue() && data.getType() == IModData.Type.LIBRARY) {
+            if(OPTION_HIDE_LIBRARIES.booleanValue() && data.isLibrary()) {
                 return false;
             }
             if(OPTION_FAVOURITES_ONLY.booleanValue() && !FAVOURITES.has(data.getModId())) {
@@ -1095,7 +1094,7 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
                 name = CatalogueModListScreen.this.font.plainSubstrByWidth(name, trimWidth - 8).trim() + "...";
             }
             MutableComponent title = Component.literal(name);
-            if(this.data.isInternal())
+            if(this.data.isLibrary())
             {
                 title.withStyle(ChatFormatting.DARK_GRAY);
             }

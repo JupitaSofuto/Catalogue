@@ -158,9 +158,9 @@ public class NeoForgeModData implements IModData
     }
 
     @Override
-    public boolean isInternal()
+    public boolean isLibrary()
     {
-        return this.info.getModId().equals("neoforge") || this.info.getModId().equals("minecraft");
+        return this.info.getModId().equals("neoforge") || this.type != Type.DEFAULT;
     }
 
     @Override

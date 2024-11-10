@@ -8,12 +8,9 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.client.ConfigScreenHandler;
 import net.minecraftforge.fml.VersionChecker;
 import net.minecraftforge.fml.loading.moddiscovery.ModInfo;
-import net.minecraftforge.forgespi.language.IConfigurable;
 import net.minecraftforge.forgespi.language.IModInfo;
-
+import net.minecraftforge.forgespi.locating.IModFile;
 import org.jetbrains.annotations.Nullable;
-
-import java.util.List;
 
 /**
  * Author: MrCrayfish
@@ -152,9 +149,9 @@ public class ForgeModData implements IModData
     }
 
     @Override
-    public boolean isInternal()
+    public boolean isLibrary()
     {
-        return this.info.getModId().equals("forge") || this.info.getModId().equals("minecraft");
+        return this.info.getModId().equals("forge") || this.type != Type.DEFAULT;
     }
 
     @Override

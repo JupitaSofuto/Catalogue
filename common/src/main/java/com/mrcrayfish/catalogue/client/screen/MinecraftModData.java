@@ -125,7 +125,7 @@ public class MinecraftModData implements IModData
     }
 
     @Override
-    public boolean isInternal()
+    public boolean isLibrary()
     {
         return true;
     }

@@ -55,7 +55,7 @@ public interface IModData
 
     boolean isLogoSmooth();
 
-    boolean isInternal();
+    boolean isLibrary();
 
     void openConfigScreen(Screen parent);
 
