@@ -524,6 +524,22 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers)
+    {
+        if(keyCode == GLFW.GLFW_KEY_F && hasControlDown())
+        {
+            if(!this.searchTextField.isFocused())
+            {
+                this.setFocused(this.searchTextField);
+                this.searchTextField.moveCursorToEnd(false);
+                this.searchTextField.setHighlightPos(0);
+            }
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
     private void setActiveTooltip(Component content)
     {
         this.activeTooltip = this.font.split(content, Math.min(200, this.width));
@@ -1055,7 +1071,7 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
                 return false;
             CatalogueModListScreen.this.setSelectedModData(this.data);
             this.list.setSelected(this);
-            return false;
+            return true;
         }
 
         public IModData getData()
