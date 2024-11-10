@@ -23,5 +23,7 @@
     "catalogue.gui.sort.alphabetically_reverse": "Z to A",
     "catalogue.gui.sort.favourites_first": "Favorites First",
     "catalogue.gui.hide_libraries": "Hide Libraries",
-    "catalogue.gui.no_mods": "No mods..."
+    "catalogue.gui.no_mods": "No mods...",
+    "catalogue.gui.mod_count": "%s Mods",
+    "catalogue.gui.library_count": "%s Libraries"
 }

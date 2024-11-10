@@ -1,5 +1,6 @@
 package com.mrcrayfish.catalogue.client.screen;
 
+import com.google.common.base.Suppliers;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
@@ -67,6 +68,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -93,9 +95,13 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
     private static final Map<String, Item> ITEM_ICON_CACHE = new HashMap<>();
     private static final Map<String, IModData> CACHED_MODS = new HashMap<>();
     private static final Pattern MOD_ID_PATTERN = Pattern.compile("^[a-z][a-z0-9_]{1,63}$");
+    private static final Supplier<Pair<Integer, Integer>> COUNTS = Suppliers.memoize(() -> {
+        int[] counts = new int[2];
+        CACHED_MODS.forEach((modId, data) -> counts[data.isInternal() ? 1 : 0]++);
+        return Pair.of(counts[0], counts[1]);
+    });
     private static ResourceLocation cachedBackground;
     private static boolean loaded = false;
-
     private final Screen parentScreen;
     private Button optionsButton;
     private EditBox searchTextField;
@@ -360,8 +366,26 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
     private void drawModList(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks)
     {
         this.modList.render(graphics, mouseX, mouseY, partialTicks);
-        graphics.drawString(this.font, ClientServices.COMPONENT.createTitle().withStyle(ChatFormatting.BOLD).withStyle(ChatFormatting.WHITE), 70, 10, 0xFFFFFF);
         this.searchTextField.render(graphics, mouseX, mouseY, partialTicks);
+
+        Component modsLabel = ClientServices.COMPONENT.createTitle().withStyle(ChatFormatting.BOLD).withStyle(ChatFormatting.WHITE);
+        Component countLabel = Component.literal("(" + CACHED_MODS.size() + ")").withStyle(ChatFormatting.GRAY);
+        MutableComponent title = Component.empty().append(modsLabel).append(" ").append(countLabel);
+        int titleWidth = this.font.width(title);
+        int titleLeft = this.modList.getX() + (this.modList.getWidth() - titleWidth) / 2;
+        graphics.drawString(this.font, title, titleLeft, 10, 0xFFFFFF);
+
+        int countLabelWidth = this.font.width(countLabel);
+        if(ClientHelper.isMouseWithin(titleLeft + titleWidth - countLabelWidth, 10, countLabelWidth, this.font.lineHeight, mouseX, mouseY))
+        {
+            Pair<Integer, Integer> counts = COUNTS.get();
+            List<FormattedCharSequence> lines = List.of(
+                Component.translatable("catalogue.gui.mod_count", counts.getLeft()).getVisualOrderText(),
+                Component.translatable("catalogue.gui.library_count", counts.getRight()).getVisualOrderText()
+            );
+            this.setActiveTooltip(lines);
+            this.tooltipYOffset = 10;
+        }
     }
 
     /**
@@ -544,6 +568,12 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
     private void setActiveTooltip(Component content)
     {
         this.activeTooltip = this.font.split(content, Math.min(200, this.width));
+        this.tooltipYOffset = 0;
+    }
+
+    private void setActiveTooltip(List<? extends FormattedCharSequence> activeTooltip)
+    {
+        this.activeTooltip = activeTooltip;
         this.tooltipYOffset = 0;
     }
 
