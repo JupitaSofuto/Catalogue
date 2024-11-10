@@ -114,25 +114,28 @@ public class Catalogue implements ClientModInitializer
             int mods = createConfigProviderMethod.getModifiers();
             if(!Modifier.isPublic(mods))
             {
-                throw new RuntimeException("createConfigProvider is not accessible for class: " + className);
+                Constants.LOG.error("createConfigProvider does not have public visibility in config provider: {}", className);
+                return null;
             }
             if(!Modifier.isStatic(mods))
             {
-                throw new RuntimeException("createConfigProvider is not static for class: " + className);
+                Constants.LOG.error("createConfigProvider does not have static modifier in config provider: {}", className);
+                return null;
             }
             if(createConfigProviderMethod.getReturnType() != Map.class)
             {
-                throw new RuntimeException("createConfigProvider must return a Map<String, BiFunction<Screen, ModContainer, Screen>>");
+                Constants.LOG.error("createConfigProvider must return a Map<String, BiFunction<Screen, ModContainer, Screen>> in config provider: {}", className);
+                return null;
             }
             return (Map<String, BiFunction<Screen, ModContainer, Screen>>) createConfigProviderMethod.invoke(null);
         }
         catch(ClassNotFoundException e)
         {
-            throw new RuntimeException("Unable to locate config factory class: " + className);
+            Constants.LOG.error("Unable to locate config provider: " + className, e);
         }
         catch(InvocationTargetException | IllegalAccessException e)
         {
-            throw new RuntimeException(e);
+            Constants.LOG.error("Failed to load config provider: " + className, e);
         }
         catch(NoSuchMethodException e)
         {
@@ -150,11 +153,13 @@ public class Catalogue implements ClientModInitializer
             int mods = createConfigScreenMethod.getModifiers();
             if(!Modifier.isPublic(mods))
             {
-                throw new RuntimeException("createConfigScreen is not accessible for class: " + className);
+                Constants.LOG.error("createConfigScreen does not have public visibility in config provider: {}", className);
+                return Optional.empty();
             }
             if(!Modifier.isStatic(mods))
             {
-                throw new RuntimeException("createConfigScreen is not static for class: " + className);
+                Constants.LOG.error("createConfigScreen does not have static modifier in config provider: {}", className);
+                return Optional.empty();
             }
             return Optional.of((currentScreen, container) ->
             {
@@ -164,13 +169,13 @@ public class Catalogue implements ClientModInitializer
                 }
                 catch(InvocationTargetException | IllegalAccessException e)
                 {
-                    throw new RuntimeException(e);
+                    throw new RuntimeException("Failed to create config screen from provider: " + className, e);
                 }
             });
         }
         catch(ClassNotFoundException e)
         {
-            throw new RuntimeException("Unable to locate config factory class: " + className);
+            Constants.LOG.error("Unable to locate config provider: " + className, e);
         }
         catch(NoSuchMethodException e)
         {
