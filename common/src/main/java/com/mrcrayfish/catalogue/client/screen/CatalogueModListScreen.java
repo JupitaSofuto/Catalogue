@@ -921,7 +921,8 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
             IModData.Update update = this.data.getUpdate();
             if(update != null)
             {
-                this.data.drawUpdateIcon(graphics, update, left + rowWidth - 8 - 10, top + 6);
+                int iconLeft = left + rowWidth - 8 - 9 + (drawFavouriteIcon ? -14 : 0);
+                this.data.drawUpdateIcon(graphics, update, iconLeft, top + 7);
             }
 
             if(drawFavouriteIcon)
@@ -1026,6 +1027,11 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
             String name = this.data.getDisplayName();
             int paddingEnd = 4;
             int trimWidth = this.list.getRowWidth() - 24 - paddingEnd;
+            IModData.Update update = this.data.getUpdate();
+            if(update != null)
+            {
+                trimWidth -= 12;
+            }
             if(favouriteIconVisible)
             {
                 trimWidth -= 18;
