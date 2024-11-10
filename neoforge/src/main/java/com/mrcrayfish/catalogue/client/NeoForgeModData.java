@@ -10,7 +10,6 @@ import net.neoforged.fml.VersionChecker;
 import net.neoforged.fml.loading.moddiscovery.ModInfo;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.neoforged.neoforgespi.language.IModInfo;
-
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -189,6 +188,13 @@ public class NeoForgeModData implements IModData
 
     private Type analyzeType(IModInfo info)
     {
+        // For Fabric libraries loaded by Sinytra Connector
+        String modId = info.getModId();
+        if(modId.startsWith("fabric-") || modId.equals("fabricloader") || modId.equals("mixinextras"))
+        {
+            return Type.LIBRARY;
+        }
+
         return switch(info.getOwningFile().getFile().getType())
         {
             case MOD -> Type.DEFAULT;
