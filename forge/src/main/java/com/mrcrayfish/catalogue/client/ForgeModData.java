@@ -125,12 +125,7 @@ public class ForgeModData implements IModData
     @Override
     public String getBackground()
     {
-        Object properties = this.info.getOwningFile().getConfig().getConfigElement("modproperties", this.info.getModId());
-        if(properties != null)
-        {
-            //.get("catalogueBackground")
-        }
-        return null;
+        return this.info.getModProperties().get("catalogueBackground") instanceof String s ? s : null;
     }
 
     @Override
