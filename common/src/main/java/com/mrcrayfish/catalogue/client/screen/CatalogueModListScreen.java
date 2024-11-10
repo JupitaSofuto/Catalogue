@@ -17,6 +17,7 @@ import com.mrcrayfish.catalogue.platform.ClientServices;
 import net.minecraft.ChatFormatting;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.components.AbstractSelectionList;
@@ -852,6 +853,13 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
             //graphics.blit(Screen.BACKGROUND_LOCATION, this.getX(), this.getY(), this.getRight(), this.getBottom() + (int) this.getScrollAmount(), this.width, this.height, 32, 32);
             graphics.setColor(1.0F, 1.0F, 1.0F, 1.0F);
             super.renderWidget(graphics, mouseX, mouseY, partialTicks);
+
+            if(this.children().isEmpty())
+            {
+                int left = this.getX() + this.getWidth() / 2;
+                int top = this.getY() + (this.getHeight() - CatalogueModListScreen.this.font.lineHeight) / 2;
+                graphics.drawCenteredString(CatalogueModListScreen.this.font, Component.translatable("catalogue.gui.no_mods"), left, top, 0xFFFFFFFF);
+            }
         }
 
         @Override
