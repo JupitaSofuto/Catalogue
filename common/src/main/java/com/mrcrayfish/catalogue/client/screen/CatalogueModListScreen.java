@@ -105,6 +105,9 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         .put("dependencies", new SearchFilter((query, data) -> {
             IModData target = CACHED_MODS.get(query.toLowerCase(Locale.ENGLISH));
             return target != null && target.getDependencies().contains(data.getModId());
+        }))
+        .put("dependents", new SearchFilter((query, data) -> {
+            return data.getDependencies().contains(query.toLowerCase(Locale.ENGLISH));
         })).build();
     private static final Style SEARCH_FILTER_KEY = Style.EMPTY.withColor(ChatFormatting.GOLD);
     private static final Style SEARCH_FILTER_VALUE = Style.EMPTY.withColor(ChatFormatting.WHITE);
@@ -1232,6 +1235,10 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
                     .setAlignment(DropdownMenu.Alignment.BELOW_LEFT)
                     .addItem(Component.translatable("catalogue.gui.show_dependencies"), () -> {
                         String filter = "@dependencies:" + this.data.getModId();
+                        CatalogueModListScreen.this.searchTextField.setValue(filter);
+                    })
+                    .addItem(Component.translatable("catalogue.gui.show_dependents"), () -> {
+                        String filter = "@dependents:" + this.data.getModId();
                         CatalogueModListScreen.this.searchTextField.setValue(filter);
                     }).build();
                 menu.toggle((int) mouseX, (int) mouseY);
