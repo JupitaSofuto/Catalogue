@@ -17,7 +17,7 @@ import net.minecraft.util.Mth;
  */
 public class CatalogueIconButton extends Button
 {
-    private static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath(Constants.MOD_ID, "textures/gui/icons.png");
+    public static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath(Constants.MOD_ID, "textures/gui/icons.png");
 
     private final Component label;
     private final int u, v;

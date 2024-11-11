@@ -1,6 +1,7 @@
 package com.mrcrayfish.catalogue.client.screen;
 
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableMap;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
@@ -27,6 +28,7 @@ import net.minecraft.client.gui.components.LogoRenderer;
 import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.client.gui.narration.NarratedElementType;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.texture.DynamicTexture;
@@ -48,10 +50,9 @@ import net.minecraft.world.item.Items;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.apache.commons.lang3.mutable.MutableObject;
 import org.apache.commons.lang3.tuple.Pair;
+import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix4f;
 import org.lwjgl.glfw.GLFW;
-
-import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -66,6 +67,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
@@ -99,8 +101,16 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         CACHED_MODS.forEach((modId, data) -> counts[data.isLibrary() ? 1 : 0]++);
         return Pair.of(counts[0], counts[1]);
     });
+    private static final Map<String, SearchFilter> SEARCH_FILTERS = ImmutableMap.<String, SearchFilter>builder()
+        .put("dependencies", new SearchFilter((query, data) -> {
+            IModData target = CACHED_MODS.get(query.toLowerCase(Locale.ENGLISH));
+            return target != null && target.getDependencies().contains(data.getModId());
+        })).build();
+    private static final Style SEARCH_FILTER_KEY = Style.EMPTY.withColor(ChatFormatting.GOLD);
+    private static final Style SEARCH_FILTER_VALUE = Style.EMPTY.withColor(ChatFormatting.WHITE);
     private static ResourceLocation cachedBackground;
     private static boolean loaded = false;
+
     private final Screen parentScreen;
     private Button optionsButton;
     private EditBox searchTextField;
@@ -149,13 +159,25 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
     protected void init()
     {
         super.init();
-        this.searchTextField = new EditBox(this.font, 10, 25, 150, 20, CommonComponents.EMPTY);
+        this.searchTextField = new EditBox(this.font, 10, 25, 150, 20, CommonComponents.EMPTY) {
+            @Override
+            public int getInnerWidth() {
+                if(this.getValue().startsWith("@")) {
+                    return super.getInnerWidth() - 16;
+                }
+                return super.getInnerWidth();
+            }
+        };
+        this.searchTextField.setFormatter(this::formatQuery);
+        this.searchTextField.setMaxLength(128);
         this.searchTextField.setValue(OPTION_QUERY.getValue());
         this.searchTextField.setResponder(s -> {
-            OPTION_QUERY.setValue(s);
-            this.updateSearchFieldSuggestion(s);
-            this.modList.filterAndUpdateList();
-            this.updateSelectedModList();
+            if(!OPTION_QUERY.getValue().equals(s)) {
+                OPTION_QUERY.setValue(s);
+                this.updateSearchFieldSuggestion(s);
+                this.modList.filterAndUpdateList();
+                this.updateSelectedModList();
+            }
         });
         this.addWidget(this.searchTextField);
         this.modList = new ModList();
@@ -230,7 +252,9 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
                 return false;
             }).build();
 
-        this.optionsButton = this.addRenderableWidget(new CatalogueIconButton(this.modList.getRight() - 16, 6, 40, 0, 16, 16, menu::toggle));
+        this.optionsButton = this.addRenderableWidget(new CatalogueIconButton(this.modList.getRight() - 16, 6, 40, 0, 16, 16, btn -> {
+            menu.toggle(btn.getRectangle());
+        }));
 
         // Filter the mod list
         this.modList.filterAndUpdateList();
@@ -273,6 +297,18 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
 
         boolean inMenu = this.menu != null;
         super.render(graphics, inMenu ? -1000 : mouseX, inMenu ? -1000 : mouseY, partialTicks);
+
+        if(OPTION_QUERY.getValue().startsWith("@"))
+        {
+            int iconX = this.searchTextField.getX() + this.searchTextField.getWidth() - 15;
+            int iconY = this.searchTextField.getY() + (this.searchTextField.getHeight() - 10) / 2;
+            graphics.blit(CatalogueIconButton.TEXTURE, iconX, iconY, 20, 10, 10, 10, 64, 64);
+
+            if(this.menu == null && ClientHelper.isMouseWithin(iconX, iconY, 10, 10, mouseX, mouseY))
+            {
+                this.setActiveTooltip(Component.translatable("catalogue.gui.advanced_search.info"));
+            }
+        }
 
         Optional<IModData> optional = Optional.ofNullable(CACHED_MODS.get(Constants.MOD_ID));
         optional.ifPresent(this::loadAndCacheLogo);
@@ -335,6 +371,31 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         if(value.isEmpty())
         {
             this.searchTextField.setSuggestion(Component.translatable("catalogue.gui.search").append(Component.literal("...")).getString());
+        }
+        else if(value.startsWith("@"))
+        {
+            // Mark as special search
+            int end = value.indexOf(":");
+            if(end != -1)
+            {
+                String type = value.substring(1, end);
+                Optional<String> optional = SEARCH_FILTERS.keySet().stream().filter(filter -> {
+                    return filter.startsWith(type.toLowerCase(Locale.ENGLISH));
+                }).min(Comparator.comparing(String::length));
+                if(optional.isPresent())
+                {
+                    int length = type.length();
+                    this.searchTextField.setSuggestion(optional.get().substring(length));
+                }
+                else
+                {
+                    this.searchTextField.setSuggestion("");
+                }
+            }
+            else
+            {
+                this.searchTextField.setSuggestion("");
+            }
         }
         else
         {
@@ -799,11 +860,19 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
     {
         private static final Predicate<IModData> SEARCH_PREDICATE = data -> {
             String query = OPTION_QUERY.getValue();
+            if(query.startsWith("@")) {
+                return performSearchFilter(query, data);
+            }
             return data.getDisplayName()
                 .toLowerCase(Locale.ENGLISH)
                 .contains(query.toLowerCase(Locale.ENGLISH));
         };
         private static final Predicate<IModData> FILTER_PREDICATE = data -> {
+            // We ignore filters when using special query
+            String query = OPTION_QUERY.getValue();
+            if(query.startsWith("@")) {
+                return true;
+            }
             if(OPTION_CONFIGS_ONLY.booleanValue() && !data.hasConfig()) {
                 return false;
             }
@@ -915,6 +984,12 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         }
 
         @Override
+        protected boolean isValidMouseClick(int button)
+        {
+            return button == 0 || button == 1;
+        }
+
+        @Override
         public void centerScrollOn(ModListEntry entry)
         {
             super.centerScrollOn(entry);
@@ -941,6 +1016,49 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         {
             return this.hideFavourites;
         }
+    }
+
+    private static boolean performSearchFilter(String query, IModData data)
+    {
+        if(!query.startsWith("@"))
+            return false;
+
+        int end = query.indexOf(":");
+        if(end == -1)
+            return false;
+
+        String type = query.substring(1, end).toLowerCase(Locale.ENGLISH);
+        if(!SEARCH_FILTERS.containsKey(type))
+            return false;
+
+        String value = query.substring(end + 1);
+        return SEARCH_FILTERS.get(type).predicate().test(value, data);
+    }
+
+    private FormattedCharSequence formatQuery(String partial, int displayPos)
+    {
+        String query = OPTION_QUERY.getValue();
+        if(!query.startsWith("@"))
+            return FormattedCharSequence.forward(partial, Style.EMPTY);
+
+        int split = query.indexOf(":");
+        if(split == -1)
+            return FormattedCharSequence.forward(partial, SEARCH_FILTER_KEY);
+
+        if(displayPos > split)
+            return FormattedCharSequence.forward(partial, SEARCH_FILTER_VALUE);
+
+        if(displayPos + partial.length() < split)
+            return FormattedCharSequence.forward(partial, SEARCH_FILTER_KEY);
+
+        split = partial.indexOf(":");
+        if(split == -1)
+            return FormattedCharSequence.forward(partial, SEARCH_FILTER_KEY);
+
+        return FormattedCharSequence.composite(
+            FormattedCharSequence.forward(partial.substring(0, split + 1), SEARCH_FILTER_KEY),
+            FormattedCharSequence.forward(partial.substring(split + 1), SEARCH_FILTER_VALUE)
+        );
     }
 
     private class ModListEntry extends ObjectSelectionList.Entry<ModListEntry>
@@ -1106,9 +1224,26 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         {
             if(this.button.mouseClicked(mouseX, mouseY, button))
                 return false;
-            CatalogueModListScreen.this.setSelectedModData(this.data);
-            this.list.setSelected(this);
-            return true;
+
+            if(button == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+            {
+                DropdownMenu menu = DropdownMenu.builder(CatalogueModListScreen.this)
+                    .setMinItemSize(0, 16)
+                    .setAlignment(DropdownMenu.Alignment.BELOW_LEFT)
+                    .addItem(Component.translatable("catalogue.gui.show_dependencies"), () -> {
+                        String filter = "@dependencies:" + this.data.getModId();
+                        CatalogueModListScreen.this.searchTextField.setValue(filter);
+                    }).build();
+                menu.toggle((int) mouseX, (int) mouseY);
+                return false;
+            }
+            else if(button == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+            {
+                CatalogueModListScreen.this.setSelectedModData(this.data);
+                this.list.setSelected(this);
+                return true;
+            }
+            return false;
         }
 
         public IModData getData()
@@ -1273,6 +1408,8 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
     private record Dimension(int width, int height) {}
 
     private record ImageInfo(ResourceLocation resource, Dimension size) {}
+
+    private record SearchFilter(BiPredicate<String, IModData> predicate) {}
 
     private static class Favourites
     {

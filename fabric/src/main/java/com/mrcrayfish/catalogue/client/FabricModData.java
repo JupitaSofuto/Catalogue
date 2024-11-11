@@ -4,6 +4,7 @@ import com.mrcrayfish.catalogue.Catalogue;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
 import net.fabricmc.loader.api.metadata.CustomValue;
+import net.fabricmc.loader.api.metadata.ModDependency;
 import net.fabricmc.loader.api.metadata.ModMetadata;
 import net.fabricmc.loader.api.metadata.Person;
 import net.minecraft.client.Minecraft;
@@ -12,6 +13,8 @@ import net.minecraft.client.gui.screens.Screen;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.List;
+import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
@@ -24,6 +27,7 @@ public class FabricModData implements IModData
 {
     private final ModMetadata metadata;
     private final Type type;
+    private final Set<String> dependencies;
     private final String imageIcon;
     private final String imageBanner;
     private final String imageBackground;
@@ -33,6 +37,7 @@ public class FabricModData implements IModData
     {
         this.metadata = metadata;
         this.type = analyzeType(metadata);
+        this.dependencies = analyzeDependencies(metadata);
         String imageIcon = metadata.getIconPath(64).orElse(null);
         String imageBanner = null;
         String imageBackground = null;
@@ -172,6 +177,12 @@ public class FabricModData implements IModData
     }
 
     @Override
+    public Set<String> getDependencies()
+    {
+        return this.dependencies;
+    }
+
+    @Override
     public boolean hasConfig()
     {
         return Catalogue.getConfigProviders().containsKey(this.metadata.getId());
@@ -253,5 +264,21 @@ public class FabricModData implements IModData
         }
 
         return DEFAULT;
+    }
+
+    private static Set<String> analyzeDependencies(ModMetadata source)
+    {
+        return source.getDependencies().stream().filter(dependency -> {
+            if(dependency.getKind() != ModDependency.Kind.DEPENDS) {
+               return false;
+            }
+            String modId = dependency.getModId();
+            return !modId.equals("fabricloader") && !modId.equals("fabric") && !modId.equals("minecraft") && !modId.equals("java");
+        }).flatMap(dependency -> {
+            return FabricLoader.getInstance().getModContainer(dependency.getModId()).stream();
+        }).map(container -> {
+            ModMetadata metadata = container.getMetadata();
+            return metadata.getId();
+        }).collect(Collectors.toUnmodifiableSet());
     }
 }

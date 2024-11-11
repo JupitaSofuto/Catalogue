@@ -14,6 +14,7 @@ import net.minecraft.client.gui.components.WidgetSprites;
 import net.minecraft.client.gui.narration.NarratedElementType;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -51,11 +52,21 @@ public class DropdownMenu extends AbstractWidget
         this.alignment = alignment;
     }
 
-    public void toggle(AbstractWidget source)
+    public void toggle(int mouseX, int mouseY)
+    {
+        this.toggle(new ScreenRectangle(mouseX, mouseY, 0, 0));
+    }
+
+    public void toggle(AbstractWidget widget)
+    {
+        this.toggle(widget.getRectangle());
+    }
+
+    public void toggle(ScreenRectangle rect)
     {
         if(!this.visible)
         {
-            this.show(source);
+            this.show(rect);
         }
         else
         {
@@ -63,9 +74,9 @@ public class DropdownMenu extends AbstractWidget
         }
     }
 
-    public void show(AbstractWidget source)
+    private void show(ScreenRectangle rect)
     {
-        this.updatePosition(source);
+        this.updatePosition(rect);
         this.items.forEach(child -> {
             child.visible = true;
         });
@@ -88,12 +99,12 @@ public class DropdownMenu extends AbstractWidget
         this.visible = false;
     }
 
-    private void updatePosition(AbstractWidget source)
+    private void updatePosition(ScreenRectangle rect)
     {
         this.layout.arrangeElements();
         this.width = this.layout.getWidth();
         this.height = this.layout.getHeight();
-        this.alignment.aligner.accept(this, source.getRectangle());
+        this.alignment.aligner.accept(this, rect);
         this.layout.setX(this.getX());
         this.layout.setY(this.getY());
     }
@@ -295,7 +306,7 @@ public class DropdownMenu extends AbstractWidget
                 }
             }
             this.parent.subMenu = this.subMenu;
-            this.subMenu.show(this);
+            this.subMenu.show(this.getRectangle());
         }
 
         @Override

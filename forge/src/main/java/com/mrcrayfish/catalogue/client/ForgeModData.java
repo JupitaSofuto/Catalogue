@@ -9,8 +9,11 @@ import net.minecraftforge.client.ConfigScreenHandler;
 import net.minecraftforge.fml.VersionChecker;
 import net.minecraftforge.fml.loading.moddiscovery.ModInfo;
 import net.minecraftforge.forgespi.language.IModInfo;
-import net.minecraftforge.forgespi.locating.IModFile;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Author: MrCrayfish
@@ -21,11 +24,13 @@ public class ForgeModData implements IModData
 
     private final IModInfo info;
     private final Type type;
+    private final Set<String> dependencies;
 
     public ForgeModData(IModInfo info)
     {
         this.info = info;
         this.type = analyzeType(info);
+        this.dependencies = this.analyzeDependencies(info);
     }
 
     @Override
@@ -137,6 +142,12 @@ public class ForgeModData implements IModData
     }
 
     @Override
+    public Set<String> getDependencies()
+    {
+        return this.dependencies;
+    }
+
+    @Override
     public boolean hasConfig()
     {
         return ConfigScreenHandler.getScreenFactoryFor(this.info).isPresent();
@@ -182,4 +193,13 @@ public class ForgeModData implements IModData
             case LIBRARY, LANGPROVIDER, GAMELIBRARY -> Type.LIBRARY;
         };
     }
-}
+
+    private Set<String> analyzeDependencies(IModInfo source)
+    {
+        List<? extends IModInfo.ModVersion> versions = source.getDependencies();
+        return versions.stream().filter(version -> {
+            return !version.getModId().equals("minecraft") && !version.getModId().equals("neoforge");
+        }).map(IModInfo.ModVersion::getOwner).map(info -> {
+            return info.getModId();
+        }).collect(Collectors.toUnmodifiableSet());
+    }}

@@ -25,5 +25,7 @@
     "catalogue.gui.hide_libraries": "Hide Libraries",
     "catalogue.gui.no_mods": "No mods...",
     "catalogue.gui.mod_count": "%s Mods",
-    "catalogue.gui.library_count": "%s Libraries"
+    "catalogue.gui.library_count": "%s Libraries",
+    "catalogue.gui.advanced_search.info": "Advanced search queries will ignore any active filters",
+    "catalogue.gui.show_dependencies": "Show Dependencies"
 }

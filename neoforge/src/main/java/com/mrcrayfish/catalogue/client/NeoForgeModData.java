@@ -12,6 +12,10 @@ import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.neoforged.neoforgespi.language.IModInfo;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 /**
  * Author: MrCrayfish
  */
@@ -21,11 +25,13 @@ public class NeoForgeModData implements IModData
 
     private final IModInfo info;
     private final Type type;
+    private final Set<String> dependencies;
 
     public NeoForgeModData(IModInfo info)
     {
         this.info = info;
         this.type = analyzeType(info);
+        this.dependencies = analyzeDependencies(info);
     }
 
     @Override
@@ -145,6 +151,12 @@ public class NeoForgeModData implements IModData
     }
 
     @Override
+    public Set<String> getDependencies()
+    {
+        return this.dependencies;
+    }
+
+    @Override
     public boolean hasConfig()
     {
         return IConfigScreenFactory.getForMod(this.info).isPresent();
@@ -186,7 +198,7 @@ public class NeoForgeModData implements IModData
         return ((ModInfo) this.info).getConfigElement(key).map(Object::toString).orElse(null);
     }
 
-    private Type analyzeType(IModInfo info)
+    private static Type analyzeType(IModInfo info)
     {
         // For Fabric libraries loaded by Sinytra Connector
         String modId = info.getModId();
@@ -200,5 +212,13 @@ public class NeoForgeModData implements IModData
             case MOD -> Type.DEFAULT;
             case LIBRARY, GAMELIBRARY -> Type.LIBRARY;
         };
+    }
+
+    private static Set<String> analyzeDependencies(IModInfo source)
+    {
+        List<? extends IModInfo.ModVersion> versions = source.getDependencies();
+        return versions.stream().filter(version -> {
+            return !version.getModId().equals("minecraft") && !version.getModId().equals("neoforge");
+        }).map(IModInfo.ModVersion::getModId).collect(Collectors.toUnmodifiableSet());
     }
 }
