@@ -30,7 +30,9 @@ import net.minecraft.client.gui.narration.NarratedElementType;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.renderer.CoreShaders;
 import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.renderer.texture.TextureManager;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
@@ -305,7 +307,7 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         {
             int iconX = this.searchTextField.getX() + this.searchTextField.getWidth() - 15;
             int iconY = this.searchTextField.getY() + (this.searchTextField.getHeight() - 10) / 2;
-            graphics.blit(CatalogueIconButton.TEXTURE, iconX, iconY, 20, 10, 10, 10, 64, 64);
+            graphics.blit(RenderType::guiTextured, CatalogueIconButton.TEXTURE, iconX, iconY, 20, 10, 10, 10, 64, 64);
 
             if(this.menu == null && ClientHelper.isMouseWithin(iconX, iconY, 10, 10, mouseX, mouseY))
             {
@@ -320,7 +322,7 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         {
             Dimension size = imageInfo.size();
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-            graphics.blit(imageInfo.resource(), 10, 9, 10, 10, 0.0F, 0.0F, size.width, size.height, size.width, size.height);
+            graphics.blit(RenderType::guiTextured, imageInfo.resource(), 10, 9, 0, 0, 10, 10, size.width, size.height, size.width, size.height);
         }
 
         if(this.menu != null)
@@ -675,7 +677,7 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
             return;
 
         ResourceLocation texture = cachedBackground != null ? cachedBackground : MISSING_BACKGROUND;
-        RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
+        RenderSystem.setShader(CoreShaders.POSITION_TEX_COLOR);
         RenderSystem.setShaderTexture(0, texture);
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
         RenderSystem.enableBlend();
@@ -719,7 +721,7 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
 
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
             RenderSystem.enableBlend();
-            graphics.blit(bannerInfo.resource(), x, y, width, height, 0.0F, 0.0F, size.width, size.height, size.width, size.height);
+            graphics.blit(RenderType::guiTextured, bannerInfo.resource(), x, y, 0, 0, width, height, size.width, size.height, size.width, size.height);
             RenderSystem.disableBlend();
         }
     }
@@ -949,10 +951,6 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         @Override
         public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks)
         {
-            graphics.setColor(0.125F, 0.125F, 0.125F, 1.0F);
-            // TODO what appened
-            //graphics.blit(Screen.BACKGROUND_LOCATION, this.getX(), this.getY(), this.getRight(), this.getBottom() + (int) this.getScrollAmount(), this.width, this.height, 32, 32);
-            graphics.setColor(1.0F, 1.0F, 1.0F, 1.0F);
             super.renderWidget(graphics, mouseX, mouseY, partialTicks);
 
             if(this.children().isEmpty())
@@ -1124,7 +1122,7 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
                 RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
                 RenderSystem.enableBlend();
                 Dimension size = iconInfo.size();
-                graphics.blit(iconInfo.resource(), left + 4, top + 3, 16, 16, 0.0F, 0.0F, size.width, size.height, size.width, size.height);
+                graphics.blit(RenderType::guiTextured, iconInfo.resource(), left + 4, top + 3, 0, 0, 16, 16, size.width, size.height, size.width, size.height);
                 RenderSystem.disableBlend();
                 return;
             }
@@ -1166,7 +1164,7 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
                 ResourceLocation resource = ResourceLocation.tryParse(itemIcon);
                 if(resource != null)
                 {
-                    Item item = BuiltInRegistries.ITEM.get(resource);
+                    Item item = BuiltInRegistries.ITEM.getValue(resource);
                     if(item != null && item != Items.AIR)
                     {
                         ITEM_ICON_CACHE.put(this.data.getModId(), item);
@@ -1280,7 +1278,7 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
             protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick)
             {
                 int textureU = FAVOURITES.has(this.modId) ? 10 : 0;
-                graphics.blit(TEXTURE, this.getX(), this.getY(), textureU, 10, 10, 10, 64, 64);
+                graphics.blit(RenderType::guiTextured, TEXTURE, this.getX(), this.getY(), textureU, 10, 10, 10, 64, 64);
             }
 
             @Override
@@ -1352,7 +1350,7 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         }
 
         @Override
-        protected int getRowTop(int $$0)
+        public int getRowTop(int $$0)
         {
             return super.getRowTop($$0) + 4;
         }

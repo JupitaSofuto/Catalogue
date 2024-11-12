@@ -7,6 +7,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.narration.NarratedElementType;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -55,7 +56,7 @@ public class CatalogueIconButton extends Button
         int iconY = this.getY() + (this.height - 10) / 2;
         float brightness = this.active ? 1.0F : 0.5F;
         RenderSystem.setShaderColor(brightness, brightness, brightness, this.alpha);
-        graphics.blit(TEXTURE, iconX, iconY, this.u, this.v, 10, 10, 64, 64);
+        graphics.blit(RenderType::guiTextured, TEXTURE, iconX, iconY, this.u, this.v, 10, 10, 64, 64);
         RenderSystem.setShaderColor(brightness, brightness, brightness, this.alpha);
         int textColor = 0xFFFFFF | Mth.ceil(this.alpha * 255.0F) << 24;
         graphics.drawString(minecraft.font, this.label, iconX + 14, iconY + 1, textColor);

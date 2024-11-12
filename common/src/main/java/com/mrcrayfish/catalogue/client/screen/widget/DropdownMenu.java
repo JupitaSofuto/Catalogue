@@ -15,6 +15,7 @@ import net.minecraft.client.gui.narration.NarratedElementType;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -193,7 +194,7 @@ public class DropdownMenu extends AbstractWidget
         protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float deltaTick)
         {
             RenderSystem.enableBlend();
-            graphics.blitSprite(SPRITES.get(this.active, this.isHovered() || this.selected()), this.getX(), this.getY(), this.getWidth(), this.getHeight());
+            graphics.blitSprite(RenderType::guiTextured, SPRITES.get(this.active, this.isHovered() || this.selected()), this.getX(), this.getY(), this.getWidth(), this.getHeight());
             RenderSystem.disableBlend();
 
             Font font = Minecraft.getInstance().font;
@@ -242,7 +243,7 @@ public class DropdownMenu extends AbstractWidget
         {
             super.renderWidget(graphics, mouseX, mouseY, deltaTick);
             int offset = (this.getHeight() - 14) / 2;
-            graphics.blit(TEXTURE, this.getX() + this.getWidth() - 14 - offset, this.getY() + offset, this.isHoveredOrFocused() ? 14 : 0, this.holder.getValue() ? 14 : 0, 14, 14, 64, 64);
+            graphics.blit(RenderType::guiTextured, TEXTURE, this.getX() + this.getWidth() - 14 - offset, this.getY() + offset, this.isHoveredOrFocused() ? 14 : 0, this.holder.getValue() ? 14 : 0, 14, 14, 64, 64);
         }
 
         @Override

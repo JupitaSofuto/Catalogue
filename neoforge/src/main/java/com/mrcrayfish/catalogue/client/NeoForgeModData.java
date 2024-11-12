@@ -4,6 +4,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.fml.ModList;
 import net.neoforged.fml.VersionChecker;
@@ -189,7 +190,7 @@ public class NeoForgeModData implements IModData
     {
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
         int vOffset = update.animated() && (System.currentTimeMillis() / 800 & 1) == 1 ? 8 : 0;
-        graphics.blit(update.textures(), x, y, update.texOffset() * 8, vOffset, 8, 8, 64, 16);
+        graphics.blit(RenderType::guiTextured, update.textures(), x, y, update.texOffset() * 8, vOffset, 8, 8, 64, 16);
     }
 
     @Nullable

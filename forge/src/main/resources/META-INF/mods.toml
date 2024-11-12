@@ -13,6 +13,7 @@ logoFile="assets/${mod_id}/banner.png"
 logoBlur=false
 authors="${mod_author}"
 description="${mod_desc}"
+displayTest="IGNORE_SERVER_VERSION"
 
 [modproperties."${mod_id}"]
     catalogueImageIcon="assets/${mod_id}/icon.png"
