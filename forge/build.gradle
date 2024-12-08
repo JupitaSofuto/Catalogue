@@ -41,15 +41,6 @@ minecraft {
             taskName "Client"
             property 'forge.enabledGameTestNamespaces', mod_id
         }
-        server {
-            taskName "Server"
-            property 'forge.enabledGameTestNamespaces', mod_id
-            args '--nogui'
-        }
-        data {
-            taskName "Data"
-            args '--mod', mod_id, '--all', '--output', file('src/generated/resources/'), '--existing', file('src/main/resources/')
-        }
     }
 }
 

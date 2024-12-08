@@ -2,7 +2,6 @@ package com.mrcrayfish.catalogue.client.screen;
 
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
-import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.BufferUploader;
@@ -11,8 +10,11 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mrcrayfish.catalogue.Constants;
+import com.mrcrayfish.catalogue.Utils;
+import com.mrcrayfish.catalogue.client.Branding;
 import com.mrcrayfish.catalogue.client.ClientHelper;
 import com.mrcrayfish.catalogue.client.IModData;
+import com.mrcrayfish.catalogue.client.ImageInfo;
 import com.mrcrayfish.catalogue.client.screen.widget.CatalogueIconButton;
 import com.mrcrayfish.catalogue.client.screen.widget.DropdownMenu;
 import com.mrcrayfish.catalogue.platform.ClientServices;
@@ -26,15 +28,12 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.LogoRenderer;
 import net.minecraft.client.gui.components.ObjectSelectionList;
+import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.narration.NarratedElementType;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
-import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.CoreShaders;
-import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.client.renderer.texture.TextureManager;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.client.sounds.SoundManager;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -90,9 +89,9 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
     private static final MutableBoolean OPTION_UPDATES_ONLY = new MutableBoolean(false);
     private static final MutableBoolean OPTION_FAVOURITES_ONLY = new MutableBoolean(false);
     private static final MutableObject<Comparator<ModListEntry>> OPTION_SORT = new MutableObject<>(SORT_ALPHABETICALLY);
-    private static final ResourceLocation MISSING_BANNER = ResourceLocation.fromNamespaceAndPath(Constants.MOD_ID, "textures/gui/missing_banner.png");
-    private static final ResourceLocation MISSING_BACKGROUND = ResourceLocation.fromNamespaceAndPath(Constants.MOD_ID, "textures/gui/missing_background.png");
-    private static final ImageInfo MISSING_BANNER_INFO = new ImageInfo(MISSING_BANNER, new Dimension(120, 120));
+    private static final ResourceLocation MISSING_BANNER = Utils.resource("textures/gui/missing_banner.png");
+    private static final ResourceLocation MISSING_BACKGROUND = Utils.resource("textures/gui/missing_background.png");
+    private static final ImageInfo MISSING_BANNER_INFO = new ImageInfo(MISSING_BANNER, 120, 120, () -> {});
     private static final Map<String, ImageInfo> BANNER_CACHE = new HashMap<>();
     private static final Map<String, ImageInfo> IMAGE_ICON_CACHE = new HashMap<>();
     private static final Map<String, Item> ITEM_ICON_CACHE = new HashMap<>();
@@ -113,7 +112,7 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         })).build();
     private static final Style SEARCH_FILTER_KEY = Style.EMPTY.withColor(ChatFormatting.GOLD);
     private static final Style SEARCH_FILTER_VALUE = Style.EMPTY.withColor(ChatFormatting.WHITE);
-    private static ResourceLocation cachedBackground;
+    private static ImageInfo cachedBackground;
     private static boolean loaded = false;
 
     private final Screen parentScreen;
@@ -138,7 +137,7 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         {
             ClientServices.PLATFORM.getAllModData().forEach(data -> CACHED_MODS.put(data.getModId(), data));
             CACHED_MODS.put("minecraft", new MinecraftModData()); // Override minecraft
-            BANNER_CACHE.put("minecraft", new ImageInfo(LogoRenderer.MINECRAFT_LOGO, new Dimension(1024, 256)));
+            BANNER_CACHE.put("minecraft", new ImageInfo(LogoRenderer.MINECRAFT_LOGO, 1024, 256, () -> {}));
             FAVOURITES.load();
             loaded = true;
         }
@@ -187,7 +186,6 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         this.addWidget(this.searchTextField);
         this.modList = new ModList();
         this.modList.setX(10);
-        this.modList.setRenderHeader(false, 0);
         this.addWidget(this.modList);
         this.addRenderableWidget(Button.builder(CommonComponents.GUI_BACK, btn -> {
             this.minecraft.setScreen(this.parentScreen);
@@ -214,7 +212,6 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         }));
         this.issueButton.visible = false;
         this.descriptionList = new StringList(contentWidth + padding * 2, 50, contentLeft - padding, 130);
-        this.descriptionList.setRenderHeader(false, 0);
         this.descriptionList.visible = false;
         //this.descriptionList.setRenderBackground(false); // TODO what appened
         this.addWidget(this.descriptionList);
@@ -317,12 +314,11 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
 
         Optional<IModData> optional = Optional.ofNullable(CACHED_MODS.get(Constants.MOD_ID));
         optional.ifPresent(this::loadAndCacheLogo);
-        ImageInfo imageInfo = BANNER_CACHE.get(Constants.MOD_ID);
-        if(imageInfo != null)
+        ImageInfo bannerInfo = BANNER_CACHE.get(Constants.MOD_ID);
+        if(bannerInfo != null)
         {
-            Dimension size = imageInfo.size();
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-            graphics.blit(RenderType::guiTextured, imageInfo.resource(), 10, 9, 0, 0, 10, 10, size.width, size.height, size.width, size.height);
+            graphics.blit(RenderType::guiTextured, bannerInfo.resource(), 10, 9, 0, 0, 10, 10, bannerInfo.width(), bannerInfo.height(), bannerInfo.width(), bannerInfo.height());
         }
 
         if(this.menu != null)
@@ -646,7 +642,7 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
     {
         this.selectedModData = data;
         this.loadAndCacheLogo(data);
-        this.loadAndCacheBackground(data);
+        this.reloadBackground(data);
         this.configButton.visible = true;
         this.websiteButton.visible = true;
         this.issueButton.visible = true;
@@ -676,7 +672,7 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         if(this.selectedModData == null)
             return;
 
-        ResourceLocation texture = cachedBackground != null ? cachedBackground : MISSING_BACKGROUND;
+        ResourceLocation texture = cachedBackground != null ? cachedBackground.resource() : MISSING_BACKGROUND;
         RenderSystem.setShader(CoreShaders.POSITION_TEX_COLOR);
         RenderSystem.setShaderTexture(0, texture);
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
@@ -695,33 +691,32 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
     {
         if(this.selectedModData != null)
         {
-            ImageInfo bannerInfo = this.getBanner(this.selectedModData.getModId());
-            Dimension size = bannerInfo.size();
-            int width = size.width;
-            int height = size.height;
-            if(size.width > maxWidth)
+            ImageInfo info = this.getBanner(this.selectedModData.getModId());
+            int displayWidth = info.width();
+            int displayHeight = info.height();
+            if(info.width() > maxWidth)
             {
-                width = maxWidth;
-                height = (width * size.height) / size.width;
+                displayWidth = maxWidth;
+                displayHeight = (displayWidth * info.height()) / info.width();
             }
-            if(height > maxHeight)
+            if(displayHeight > maxHeight)
             {
-                height = maxHeight;
-                width = (height * size.width) / size.height;
+                displayHeight = maxHeight;
+                displayWidth = (displayHeight * info.width()) / info.height();
             }
 
-            x += (contentWidth - width) / 2;
-            y += (maxHeight - height) / 2;
+            x += (contentWidth - displayWidth) / 2;
+            y += (maxHeight - displayHeight) / 2;
 
             // Fix for minecraft logo
-            if(bannerInfo.resource() == LogoRenderer.MINECRAFT_LOGO)
+            if(info.resource() == LogoRenderer.MINECRAFT_LOGO)
             {
                 y += 8;
             }
 
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
             RenderSystem.enableBlend();
-            graphics.blit(RenderType::guiTextured, bannerInfo.resource(), x, y, 0, 0, width, height, size.width, size.height, size.width, size.height);
+            graphics.blit(RenderType::guiTextured, info.resource(), x, y, 0, 0, displayWidth, displayHeight, info.width(), info.height(), info.width(), info.height());
             RenderSystem.disableBlend();
         }
     }
@@ -738,9 +733,9 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         if(iconInfo != null)
         {
             // Hack to make icon fill max banner height
-            Dimension size = iconInfo.size();
-            Dimension newSize = new Dimension(size.width * 10, size.height * 10);
-            return new ImageInfo(iconInfo.resource(), newSize);
+            int expandedWidth = iconInfo.width() * 10;
+            int expandedHeight = iconInfo.height() * 10;
+            return new ImageInfo(iconInfo.resource(), expandedWidth, expandedHeight, iconInfo.unregister());
         }
 
         // Fallback and just use missing banner
@@ -755,21 +750,10 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         // Fills an empty logo as logo may not be present
         BANNER_CACHE.put(data.getModId(), null);
 
-        // Attempts to load the real logo
-        String banner = data.getBanner();
-        if(banner != null && !banner.isEmpty())
-        {
-            ClientServices.PLATFORM.loadNativeImage(data.getModId(), banner, image -> {
-                if(image.getWidth() > 1200 || image.getHeight() > 240) {
-                    Constants.LOG.warn("Failed to load banner image for {} as it exceeds the maximum size of 1200x240px", data.getModId());
-                    return;
-                }
-                TextureManager manager = this.minecraft.getTextureManager();
-                ResourceLocation resource = manager.register("modlogo", this.createLogoTexture(image, data.isLogoSmooth()));
-                Dimension size = new Dimension(image.getWidth(), image.getHeight());
-                BANNER_CACHE.put(data.getModId(), new ImageInfo(resource, size));
-            });
-        }
+        // Load the banner resource if present
+        Branding.BANNER.loadResource(data).ifPresent(info -> {
+            BANNER_CACHE.put(data.getModId(), info);
+        });
     }
 
     private void loadAndCacheIcon(IModData data)
@@ -780,85 +764,40 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         // Fills an empty icon as icon may not be present
         IMAGE_ICON_CACHE.put(data.getModId(), null);
 
-        // Attempts to load the real icon
-        String imageIcon = data.getImageIcon();
-        if(imageIcon != null && !imageIcon.isEmpty())
-        {
-            ClientServices.PLATFORM.loadNativeImage(data.getModId(), imageIcon, image -> {
-                TextureManager manager = this.minecraft.getTextureManager();
-                ResourceLocation resource = manager.register("catalogueicon", this.createLogoTexture(image, data.isLogoSmooth()));
-                Dimension size = new Dimension(image.getWidth(), image.getHeight());
-                IMAGE_ICON_CACHE.put(data.getModId(), new ImageInfo(resource, size));
-            });
-            return;
-        }
-
-        // Attempts to use the logo file if it's a square
-        String logoFile = data.getBanner();
-        if(logoFile != null && !logoFile.isEmpty())
-        {
-            ClientServices.PLATFORM.loadNativeImage(data.getModId(), logoFile, image -> {
-                if(image.getWidth() != image.getHeight())
-                    return;
-
-                /* The first selected mod will have its logo cached before the icon, so we
-                 * can just use the logo instead of loading the image again. */
-                String modId = data.getModId();
-                if(BANNER_CACHE.containsKey(modId))
-                {
-                    if(BANNER_CACHE.get(modId) != null)
-                    {
-                        IMAGE_ICON_CACHE.put(modId, BANNER_CACHE.get(modId));
-                        return;
-                    }
+        // Load the icon branding
+        Branding.ICON.loadResource(data).ifPresentOrElse(info -> {
+            IMAGE_ICON_CACHE.put(data.getModId(), info);
+        }, () -> {
+            // If no icon, try and use the loaded banner if a square
+            ImageInfo bannerInfo = BANNER_CACHE.get(data.getModId());
+            if(bannerInfo != null) {
+                if(bannerInfo.width() == bannerInfo.height()) {
+                    IMAGE_ICON_CACHE.put(data.getModId(), bannerInfo);
                 }
-
-                /* Since the icon will be same as the logo, we can cache into both icon and logo cache */
-                TextureManager manager = this.minecraft.getTextureManager();
-                DynamicTexture texture = this.createLogoTexture(image, data.isLogoSmooth());
-                Dimension size = new Dimension(image.getWidth(), image.getHeight());
-                ResourceLocation resource = manager.register("catalogueicon", texture);
-                IMAGE_ICON_CACHE.put(modId, new ImageInfo(resource, size));
-                BANNER_CACHE.put(modId, new ImageInfo(resource, size));
-
-            });
-        }
-    }
-
-    private void loadAndCacheBackground(IModData data)
-    {
-        // Deletes the last cached background since they are large images
-        if(cachedBackground != null)
-        {
-            TextureManager textureManager = this.minecraft.getTextureManager();
-            textureManager.release(cachedBackground);
-        }
-        cachedBackground = null;
-
-        String background = data.getBackground();
-        if(background != null && !background.isEmpty())
-        {
-            ClientServices.PLATFORM.loadNativeImage(data.getModId(), background, image -> {
-                if(image.getWidth() != 512 || image.getHeight() != 256)
-                    return;
-                TextureManager textureManager = this.minecraft.getTextureManager();
-                cachedBackground = textureManager.register("cataloguebackground", this.createLogoTexture(image, false));
-            });
-        }
-    }
-
-    private DynamicTexture createLogoTexture(NativeImage image, boolean smooth)
-    {
-        return new DynamicTexture(image)
-        {
-            @Override
-            public void upload()
-            {
-                this.bind();
-                NativeImage pixels = this.getPixels();
-                pixels.upload(0, 0, 0, 0, 0, pixels.getWidth(), pixels.getHeight(), smooth, false, false, false);
+            } else {
+                // Otherwise temporarily load the banner, use if square, otherwise free the resource
+                Branding.BANNER.loadResource(data).ifPresent(info -> {
+                    if(info.width() == info.height()) {
+                        IMAGE_ICON_CACHE.put(data.getModId(), info);
+                        BANNER_CACHE.put(data.getModId(), info); // Saves loading later
+                    } else {
+                        info.unregister().run();
+                    }
+                });
             }
-        };
+        });
+    }
+
+    private void reloadBackground(IModData data)
+    {
+        Branding.BACKGROUND.loadResource(data).ifPresentOrElse(info -> {
+            cachedBackground = info;
+        }, () -> {
+            if(cachedBackground != null) {
+                cachedBackground.unregister().run();
+                cachedBackground = null;
+            }
+        });
     }
 
     private class ModList extends ObjectSelectionList<ModListEntry>
@@ -901,13 +840,10 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         }
 
         @Override
-        public void setRenderHeader(boolean draw, int height)
-        {
-            super.setRenderHeader(draw, height);
-        }
+        protected void renderHeader(GuiGraphics graphics, int mouseX, int mouseY) {}
 
         @Override
-        protected int getScrollbarPosition()
+        protected int scrollBarX()
         {
             return this.getX() + this.width - 6;
         }
@@ -939,7 +875,15 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
                 .sorted(OPTION_SORT.getValue())
                 .collect(Collectors.toList());
             this.replaceEntries(entries);
-            this.clampScrollAmount();
+            this.refreshScrollAmount();
+        }
+
+        @Override
+        public Optional<GuiEventListener> getChildAt(double mouseX, double mouseY)
+        {
+            if(mouseX > this.getRowLeft() + this.getRowWidth())
+                return Optional.empty();
+            return super.getChildAt(mouseX, mouseY);
         }
 
         @Nullable
@@ -985,7 +929,7 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         }
 
         @Override
-        protected boolean isValidMouseClick(int button)
+        protected boolean isValidClickButton(int button)
         {
             return button == 0 || button == 1;
         }
@@ -997,20 +941,18 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         }
 
         @Override
-        protected void updateScrollingState(double mouseX, double mouseY, int button)
+        public void onRelease(double mouseX, double mouseY)
         {
-            super.updateScrollingState(mouseX, mouseY, button);
-            this.hideFavourites = button == GLFW.GLFW_MOUSE_BUTTON_LEFT && mouseX >= this.getScrollbarPosition() && mouseY < this.getScrollbarPosition() + 6;
+            super.onRelease(mouseX, mouseY);
+            this.hideFavourites = false;
         }
 
         @Override
-        public boolean mouseReleased(double mouseX, double mouseY, int button)
+        public boolean updateScrolling(double mouseX, double mouseY, int button)
         {
-            if(this.hideFavourites && button == GLFW.GLFW_MOUSE_BUTTON_LEFT)
-            {
-                this.hideFavourites = false;
-            }
-            return super.mouseReleased(mouseX, mouseY, button);
+            boolean scrolling = super.updateScrolling(mouseX, mouseY, button);
+            this.hideFavourites = scrolling;
+            return scrolling;
         }
 
         public boolean shouldHideFavourites()
@@ -1121,8 +1063,7 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
             {
                 RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
                 RenderSystem.enableBlend();
-                Dimension size = iconInfo.size();
-                graphics.blit(RenderType::guiTextured, iconInfo.resource(), left + 4, top + 3, 0, 0, 16, 16, size.width, size.height, size.width, size.height);
+                graphics.blit(RenderType::guiTextured, iconInfo.resource(), left + 4, top + 3, 0, 0, 16, 16, iconInfo.width(), iconInfo.height(), iconInfo.width(), iconInfo.height());
                 RenderSystem.disableBlend();
                 return;
             }
@@ -1165,7 +1106,7 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
                 if(resource != null)
                 {
                     Item item = BuiltInRegistries.ITEM.getValue(resource);
-                    if(item != null && item != Items.AIR)
+                    if(item != Items.AIR)
                     {
                         ITEM_ICON_CACHE.put(this.data.getModId(), item);
                         return item;
@@ -1180,12 +1121,6 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
                 Item item = optional.get();
                 if(item != Items.AIR)
                 {
-                    // Checks for Forge client item extensions
-                    if(ClientServices.PLATFORM.isCustomItemRendering(item))
-                    {
-                        ITEM_ICON_CACHE.put(this.data.getModId(), Items.GRASS_BLOCK);
-                        return Items.GRASS_BLOCK;
-                    }
                     ITEM_ICON_CACHE.put(this.data.getModId(), item);
                     return item;
                 }
@@ -1323,16 +1258,13 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         }
 
         @Override
-        public void setRenderHeader(boolean draw, int height)
-        {
-            super.setRenderHeader(draw, height);
-        }
+        protected void renderHeader(GuiGraphics graphics, int $$1, int $$2) {}
 
         @Override
         public void setSelected(@Nullable StringEntry entry) {}
 
         @Override
-        protected int getScrollbarPosition()
+        protected int scrollBarX()
         {
             return this.getX() + this.width - 7;
         }
@@ -1356,9 +1288,9 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
         }
 
         @Override
-        public int getMaxScroll()
+        protected int contentHeight()
         {
-            return Math.max(0, this.getMaxPosition() - (this.height - 12));
+            return this.getItemCount() * this.itemHeight + 16;
         }
 
         @Override
@@ -1409,10 +1341,6 @@ public class CatalogueModListScreen extends Screen implements DropdownMenuHandle
             return Component.literal(this.line);
         }
     }
-    
-    private record Dimension(int width, int height) {}
-
-    private record ImageInfo(ResourceLocation resource, Dimension size) {}
 
     private record SearchFilter(BiPredicate<String, IModData> predicate) {}
 

@@ -3,12 +3,14 @@ package com.mrcrayfish.catalogue.platform.services;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mrcrayfish.catalogue.client.IModData;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.world.item.Item;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.function.Consumer;
 
 public interface IPlatformHelper
 {
@@ -18,16 +20,11 @@ public interface IPlatformHelper
 
     Path getConfigDirectory();
 
-    default boolean isForge()
-    {
-        return false;
-    }
-
-    void loadNativeImage(String modId, String resource, Consumer<NativeImage> consumer);
-
-    boolean isCustomItemRendering(Item item);
+    NativeImage loadImageFromModResource(String modId, String resource) throws IOException;
 
     void drawUpdateIcon(GuiGraphics graphics, int x, int y);
 
     boolean isModLoaded(String modId);
+
+    boolean isDevelopmentEnvironment();
 }
