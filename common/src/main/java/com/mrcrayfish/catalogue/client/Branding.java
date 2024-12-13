@@ -23,7 +23,7 @@ public record Branding(String prefix, int imageWidth, int imageHeight,
                        Function<IModData, String> locator, boolean override)
 {
     public static final Branding ICON = new Branding("icon", 256, 256, ImagePredicate.SQUARE.and(ImagePredicate.LESS_THAN_OR_EQUAL), IModData::getImageIcon, false);
-    public static final Branding BANNER = new Branding("banner", 1200, 240, ImagePredicate.LESS_THAN_OR_EQUAL, IModData::getBanner, false);
+    public static final Branding BANNER = new Branding("banner", 1280, 256, ImagePredicate.LESS_THAN_OR_EQUAL, IModData::getBanner, false);
     public static final Branding BACKGROUND = new Branding("background", 512, 256, ImagePredicate.EQUAL, IModData::getBackground, true);
 
     public Optional<ImageInfo> loadResource(IModData data)
