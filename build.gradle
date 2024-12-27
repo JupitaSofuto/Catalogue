@@ -2,6 +2,7 @@ plugins {
     id 'eclipse'
     id 'maven-publish'
     id 'net.minecraftforge.gradle' version '5.+'
+    id 'org.moddingx.modgradle.sourcejar' version '[3,4)' apply false
 }
 
 version = '1.7.0-1.19.2'
@@ -9,6 +10,8 @@ group = 'com.mrcrayfish'
 archivesBaseName = 'catalogue'
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+apply plugin: 'org.moddingx.modgradle.sourcejar'
 
 minecraft {
     mappings channel: 'official', version: '1.19.2'
